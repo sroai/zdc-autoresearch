@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: deny writes to the frozen inputs of a CV campaign.
+"""PreToolUse hook: refuse writes to the frozen paths of this program.
 
-The campaign folder is `$CLAUDE_PROJECT_DIR` when the harness sets it, else the
-current directory, else any ancestor of a path the tool call names. The folder's
-`space/FROZEN` lists the frozen path prefixes, one per line (`#` starts a comment).
-Without that file nothing is frozen, so Step 0 can create the inputs. Exit 2 denies
-the call and the message on stderr goes back to the model.
+The repository root is `$CLAUDE_PROJECT_DIR` when the harness sets it, else the
+nearest ancestor of the current directory (or of a path the tool call names) that
+holds `space/FROZEN`. That file lists path prefixes relative to the root, one per
+line; `#` starts a comment, and a line starting with `!` is an exception: a path
+under it is allowed even when a frozen prefix also covers it. Without the file
+nothing is frozen, so Phase 0 can create everything. Exit 2 denies the call and
+the message on stderr goes back to the model.
+
+Example FROZEN:
+    submodules/EICrecon
+    !submodules/EICrecon/src/detectors/ZDC
+    configs/datasets.yaml
 """
 import json
 import os
@@ -13,73 +20,63 @@ import re
 import sys
 
 WRITE_OPERATORS = re.compile(
-    r'(>>?|\btee\b|\bsed\s+-i\S*|\brm\b|\bmv\b|\bcp\b|\btouch\b|\btruncate\b|\bln\b|\brmdir\b)([^;&|]*)'
+    r'(>>?|\btee\b|\bsed\s+-i\S*|\brm\b|\bmv\b|\bcp\b|\btouch\b|\btruncate\b|\bln\b|\brmdir\b|\bgit\s+checkout\b|\bgit\s+reset\b|\bgit\s+clean\b)([^;&|]*)'
 )
-ABSOLUTE_PATH = re.compile(r'(?:^|[\s"\'=])(/[^\s"\'<>|;&]+)')
+PATH_TOKEN = re.compile(r'(?:^|[\s"\'=])((?:/|\./|\.\./)?[^\s"\'<>|;&=]+/[^\s"\'<>|;&]*|[^\s"\'<>|;&=]+\.[A-Za-z0-9]+)')
 
 
-def read_marker(folder):
-    """The frozen prefixes listed in <folder>/space/FROZEN, or None."""
+def read_frozen(root):
+    """(frozen prefixes, allowed prefixes) from <root>/space/FROZEN, or None."""
     try:
-        with open(os.path.join(folder, "space", "FROZEN")) as f:
-            prefixes = [line.strip().rstrip("/") for line in f
-                        if line.strip() and not line.startswith("#")]
+        with open(os.path.join(root, "space", "FROZEN")) as f:
+            lines = [line.strip() for line in f if line.strip() and not line.lstrip().startswith("#")]
     except OSError:
         return None
-    return prefixes or None
+    frozen = [line.rstrip("/") for line in lines if not line.startswith("!")]
+    allowed = [line[1:].strip().rstrip("/") for line in lines if line.startswith("!")]
+    return (frozen, allowed) if frozen else None
 
 
-def find_prefixes(paths):
-    """Look for the marker in the project dir, the cwd, then up from every named path."""
-    roots = []
+def find_root(paths):
+    """The project dir, else the first ancestor of cwd or of a named path holding the marker."""
+    candidates = []
     if os.environ.get("CLAUDE_PROJECT_DIR"):
-        roots.append(os.environ["CLAUDE_PROJECT_DIR"])
-    roots.append(os.getcwd())
-    for p in paths:
-        d = os.path.dirname(os.path.abspath(p))
+        candidates.append(os.environ["CLAUDE_PROJECT_DIR"])
+    for start in [os.getcwd()] + [os.path.dirname(os.path.abspath(p)) for p in paths]:
+        d = start
         while True:
-            roots.append(d)
+            candidates.append(d)
             parent = os.path.dirname(d)
             if parent == d:
                 break
             d = parent
     seen = set()
-    for root in roots:
+    for root in candidates:
         if root in seen:
             continue
         seen.add(root)
-        prefixes = read_marker(root)
-        if prefixes:
-            return prefixes
-    return None
+        rules = read_frozen(root)
+        if rules:
+            return root, rules
+    return None, None
 
 
-def frozen_pattern(prefixes):
-    """A frozen prefix matches as a path, never as a word: a bare folder name (`corpus`,
-    `targets`) needs a slash after it, so prose such as "five targets carry" in a heredoc
-    does not trip the hook; a file or nested path (`claims.yaml`, `cv/STYLE.md`) matches
-    whole. The Bash branch also denies a bare folder name as the whole target of a write."""
-    parts = []
-    for p in prefixes:
-        esc = re.escape(p)
-        if "/" in p or "." in p:
-            parts.append(r'(?:^|[\s"\'=/])' + esc + r'(?=[\s"\'/]|$)')
-        else:
-            parts.append(r'(?:^|[\s"\'=/])' + esc + r'(?=/)')
-    return re.compile("|".join(parts))
-
-
-def bare_target(rest, prefixes):
-    """The first token of a write's operand (or the destination of mv/cp), unquoted."""
-    tokens = rest.split()
-    token = tokens[0] if tokens else ""
-    return token.strip("\"'").rstrip("/") in prefixes
+def is_frozen(path, root, rules):
+    """True when `path` (any form) lies under a frozen prefix and under no allowed one."""
+    frozen, allowed = rules
+    rel = os.path.relpath(os.path.abspath(os.path.join(os.getcwd(), path)), root)
+    if rel.startswith(".."):
+        return False
+    under = lambda prefix: rel == prefix or rel.startswith(prefix + "/")
+    if any(under(p) for p in allowed):
+        return False
+    return any(under(p) for p in frozen)
 
 
 def deny(what):
     sys.stderr.write(
-        f"protect: '{what}' is frozen (space/FROZEN; optimize.md, Files). "
-        "A needed change is a question in space/QUESTIONS.md, never an edit.\n"
+        f"protect: '{what}' is frozen (space/FROZEN; zdc-setup.md, Frozen after Phase 0). "
+        "A needed change there is a question in space/QUESTIONS.md, never an edit.\n"
     )
     sys.exit(2)
 
@@ -94,22 +91,25 @@ def main():
 
     if tool in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
         path = args.get("file_path") or args.get("notebook_path") or ""
-        prefixes = find_prefixes([path] if path else [])
-        if prefixes and frozen_pattern(prefixes).search(path):
+        if not path:
+            return
+        root, rules = find_root([path])
+        if rules and is_frozen(path, root, rules):
             deny(path)
     elif tool == "Bash":
         command = args.get("command", "") or ""
-        prefixes = find_prefixes(ABSOLUTE_PATH.findall(command))
-        if not prefixes:
+        tokens = PATH_TOKEN.findall(command)
+        root, rules = find_root(tokens)
+        if not rules:
             return
-        frozen = frozen_pattern(prefixes)
         for match in WRITE_OPERATORS.finditer(command):
             operator, rest = match.group(1), match.group(2)
-            if operator in ("mv", "cp"):
-                tokens = rest.split()
-                rest = tokens[-1] if tokens else ""
-            if frozen.search(rest) or bare_target(rest, prefixes):
-                deny(command)
+            targets = PATH_TOKEN.findall(rest)
+            if operator in ("mv", "cp") and targets:
+                targets = targets[-1:]
+            for target in targets:
+                if is_frozen(target, root, rules):
+                    deny(command)
 
 
 if __name__ == "__main__":

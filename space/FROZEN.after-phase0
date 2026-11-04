@@ -1,0 +1,37 @@
+# Copy this file to space/FROZEN at the end of Phase 0 (loop file, Phase 0 done
+# criterion). Prefixes are relative to the repository root; `!` marks an
+# exception that stays writable. Read by .claude/hooks/protect.py.
+submodules/EICrecon
+!submodules/EICrecon/src/detectors/ZDC
+!submodules/EICrecon/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+!submodules/EICrecon/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+!submodules/EICrecon/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+!submodules/EICrecon/src/algorithms/reco/LambdaReconstruction.cc
+!submodules/EICrecon/src/algorithms/reco/LambdaReconstruction.h
+!submodules/EICrecon/src/algorithms/reco/LambdaReconstructionConfig.h
+!submodules/EICrecon/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+!submodules/EICrecon/src/factories/reco/LambdaReconstruction_factory.h
+!submodules/EICrecon/src/global/reco/reco.cc
+# Shared calorimetry algorithms: writable only in Phase 3 under the G4 guard
+# (the loop file says when to add these two exceptions).
+# !submodules/EICrecon/src/algorithms/calorimetry/ImagingTopoCluster.cc
+# !submodules/EICrecon/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+submodules/detector_benchmarks
+submodules/epic-capybara
+submodules/meson-structure
+submodules/skill-eicrecon
+configs/datasets.yaml
+configs/metrics.yaml
+configs/local.yaml
+configs/ifarm.yaml
+configs/experiments/R0_stock.yaml
+configs/experiments/R1_pr3064.yaml
+scripts/130_compare_collections.py
+scripts/131_prove_gates.sh
+scripts/400_scoreboard.py
+space/perf/manifest-datasets.json
+space/perf/references.json
+space/perf/noise-band.json
+zdc-setup.md
+work-common.md
+zdc-autoresearch-loop-v2.md

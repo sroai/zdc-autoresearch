@@ -1,0 +1,28 @@
+# zdc-autoresearch machine profile — the user's workstation (the default).
+#
+# This one file answers "where is everything on THIS machine?". Scripts read
+# it through zdc/config.py (OmegaConf); select another profile with
+#     export ZDC_CONFIG=/path/to/other.yaml
+# Static facts about the machine live here; what varies per experiment lives
+# in configs/experiments/<name>.yaml. No includes, no second file to chase.
+
+# ---- the container -----------------------------------------------------------
+image: eicweb/eic_xl:26.11.0-stable      # pinned in zdc-setup.md; digest recorded there at Step 0
+runtime: docker                           # docker | apptainer (the farm profile uses apptainer)
+repo_mount: /work                         # the repo inside the container
+data_mount: /data                         # {data} inside the container (same path as the host)
+
+# ---- where bulky things go (NOT the git repo) ---------------------------------
+data_root: /data/zdc-autoresearch
+build_root: ${data_root}/build            # EICrecon build trees: build/eicrecon-<sha>
+install_root: ${data_root}/install        # EICrecon installs: install/eicrecon-<sha>
+datasets_root: ${data_root}/datasets      # simulated inputs, frozen (D1..D6a)
+reco_root: ${data_root}/reco              # reconstruction outputs: reco/<experiment>/<dataset>/
+logs_root: ${data_root}/logs              # every build/sim/reco log; read with tail/grep
+tmp_root: ${data_root}/tmp
+
+# ---- inputs that already exist on this machine --------------------------------
+msf_local_dd4hep: /data/meson-structure-2026-07/dd4hep/9x130   # D6a
+
+# ---- compute ------------------------------------------------------------------
+cores: 22                                 # nproc minus two of headroom

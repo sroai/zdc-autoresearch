@@ -1,0 +1,44 @@
+# Collection names, windows and bands the scoreboard reads (zdc-setup.md,
+# section Scoreboard). Step 0 verifies every collection name against a
+# reconstructed file (`uproot` keys) and corrects it here once; after that the
+# file is frozen.
+
+collections:
+  zdc_clusters: HcalFarForwardZDCClusters
+  zdc_rechits: HcalFarForwardZDCRecHits
+  zdc_subcell_hits: HcalFarForwardZDCSubcellHits
+  zdc_neutrals: ReconstructedHcalFarForwardZDCNeutrals     # EICrecon main at the pin
+  lambdas: ReconstructedLambdas                            # the benchmarks still say ReconstructedFarForwardZDCLambdas
+  lambda_decay_cm: ReconstructedLambdaDecayProductsCM
+  mc_particles: MCParticles
+
+# Collections that must stay byte-identical to R0 (gate G4): every collection
+# whose name does not start with one of these prefixes.
+zdc_owned_prefixes:
+  - HcalFarForwardZDC
+  - EcalFarForwardZDC
+  - ReconstructedHcalFarForwardZDCNeutrals
+  - ReconstructedLambdas
+  - ReconstructedLambdaDecayProductsCM
+  - ReconstructedFarForwardZDC
+
+# Geometry constants used by the scoreboard (benchmark conventions)
+crossing_angle_rad: -0.025
+zdc_face_z_mm: 35800.0
+
+windows:
+  pi0_mass_gev: 0.1349768
+  lambda_mass_gev: 1.115683
+  lambda_mass_window_sigma: 3.0      # ±3σ of the R0 peak; the absolute window is written to references.json at Step 0
+  high_energy_cluster_gev: 50.0      # G2
+  low_energy_cluster_gev: 1.0        # G3
+  phi_edge_deg: 5.0                  # G1: |phi| within this of 180
+
+fits:
+  energy_fit_half_width_rel: 0.1     # the benchmarks fit ±10 % around the momentum
+  mass_fit_bins: 100
+
+# Noise bands are written by Step 0 to space/perf/noise-band.json; the
+# defaults below apply only until that file exists.
+default_band:
+  relative: 0.03

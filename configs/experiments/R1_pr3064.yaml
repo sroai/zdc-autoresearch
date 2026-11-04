@@ -1,0 +1,27 @@
+# Reference R1: PR 3064 as submitted, expressed as parameter overrides on the
+# pinned main build. Six of the eight changes are JANA parameters already. The
+# two XY neighbour distances are NOT: ImagingTopoCluster_factory.h keeps their
+# ParameterRef commented out (the config type is vector<variant<string,double>>,
+# which ParameterRef cannot parse). Phase 0 adds the parameters
+# `sameLayerDistXYmm` / `diffLayerDistXYmm` (plain doubles in mm, override the
+# config when set) to that factory under the G4 guard, so this file works as
+# written. Until then R1 is reconstructed from the PR's own commit (fdbb773d)
+# and this file is a Phase 0 switch test.
+name: R1_pr3064
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  HcalFarForwardZDCImagingProtoClusters:neighbourLayersRange: 3
+  HcalFarForwardZDCImagingProtoClusters:sameLayerDistXYmm: "14.64,14.64"   # 0.3 * 48.8 mm (stock: 0.75 * 48.8 = 36.6); Phase 0 parameter
+  HcalFarForwardZDCImagingProtoClusters:diffLayerDistXYmm: "14.64,14.64"
+  HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005         # GeV (5 MeV; stock 25 MeV)
+  HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2                  # stock 10
+  ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "16.65,0.66" # stock 2.4,0.89
+  ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "2.7,1.27"     # stock 1.1,0.98
+  ReconstructedFarForwardNeutrals:gammaMaxLength: 150                        # stock 100
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local]
+output_collections: ["*"]
+notes: >
+  The parameter names and units above are what the factories register (JANA
+  prints them with -Pjana:parameter_strictness or in the dump_flags plugin);
+  Step 0 checks each one against the parameter table of the built eicrecon
+  and that an override changes the output (the switch test).

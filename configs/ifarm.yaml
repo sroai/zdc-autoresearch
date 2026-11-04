@@ -1,0 +1,31 @@
+# zdc-autoresearch machine profile — JLab ifarm (used by the farm scripts and
+# by anything run through the ifarm skills). Paths are the ones zdc-setup.md
+# (section Farm) fixes; change them there first.
+
+image: /cvmfs/singularity.opensciencegrid.org/eicweb/eic_xl:26.11.0-stable
+runtime: apptainer
+repo_mount: /work/eic3/users/romanov/zdc-autoresearch
+data_mount: /volatile/eic/romanov/zdc-autoresearch
+
+data_root: /volatile/eic/romanov/zdc-autoresearch
+build_root: /work/eic3/users/romanov/zdc-autoresearch-out/build
+install_root: /work/eic3/users/romanov/zdc-autoresearch-out/install
+datasets_root: ${data_root}/datasets
+reco_root: ${data_root}/reco
+logs_root: /farm_out/romanov/zdc-autoresearch        # Slurm and run logs: never on /work
+small_results_root: /work/eic3/users/romanov/zdc-autoresearch-out
+tmp_root: ${data_root}/tmp                            # never /tmp, never $PWD
+
+msf_dd4hep_root: /work/eic3/users/romanov/meson-structure-2026-07/dd4hep   # D6b, read-only
+
+slurm:
+  account: eic
+  partition: production
+  mem_per_cpu: 2G
+  cpus_per_task: 1
+  time: "04:00:00"
+  gres_disk: 20G
+  throttle: 16
+  files_per_task: 5
+
+cores: 1
