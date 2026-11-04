@@ -84,7 +84,8 @@ def main():
             break
     print(f"gate G4: {'PASS' if gate_ok else 'FAIL'}")
 
-    # 3. scoreboard, 4. plots (also when the gate failed: the numbers explain why)
+    # 3. truth matching and the scoreboard, 4. plots (also when the gate failed: the numbers explain why)
+    run(uv + [SCRIPTS / "410_truth_match.py", name] + (["--datasets", *[d for d in datasets if d.startswith(("D1", "D4"))]] if args.datasets else []), log)
     cmd = uv + [SCRIPTS / "400_scoreboard.py", name, "--compare", args.reference]
     if args.datasets:
         cmd += ["--datasets", *args.datasets]

@@ -48,8 +48,14 @@ EICrecon PR [#3064](https://github.com/eic/EICrecon/pull/3064)
 | `src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h` and `src/global/reco/reco.cc` | `neutronScaleCorrCoeffHcalZDC` {2.4, 0.89} → {16.65, 0.66}; `gammaScaleCorrCoeffHcalZDC` {1.1, 0.98} → {2.7, 1.27}; `gammaMaxLength` 100 → 150 |
 
 Energy corrections are `E_corr = a · E^b` (`corrPower`); `isGamma` requires
-cluster z before `gammaZMaxOffset` + ZDC position, the longest shower axis
+cluster z before `gammaZMaxOffset` + the ZDC **centre** position
+(`HcalFarForwardZDC_SiPMonTile_r_pos` is the centre, so the cut sits about
+1.3 m into the calorimeter and is close to inert), the longest shower axis
 under `gammaMaxLength` and at most one of the three axes over `gammaMaxWidth`.
+The neutron energy is `corrPower` of the **sum of all non-γ clusters**, so
+every fragment tagged γ leaves the neutron sum and a refit coefficient hides
+the loss (the PR's {16.65, 0.66} implies a 100 GeV neutron keeps about
+15 GeV of raw cluster energy against about 66 GeV with the stock {2.4, 0.89}).
 
 Review feedback (wdconinc, 2026-10-30): "This seems to significantly affect
 cluster distributions, in particular it removes essentially all cluster
@@ -78,18 +84,44 @@ The reconstruction of the ZDC only. Owned files in `submodules/EICrecon`:
   clustering, cluster shapes, calibration `sampFrac`, `logWeightBaseCoeffs`);
 - `src/algorithms/reco/FarForwardNeutralsReconstruction*` — neutron/photon
   separation and energy corrections;
-- `src/algorithms/reco/LambdaReconstruction*` — the Λ from the neutrals;
-- the ZDC block of `src/global/reco/reco.cc` (the two factories above).
+- the ZDC block of `src/global/reco/reco.cc` (the neutrals and Λ factory
+  instances; the neutrals factory also writes `ReconstructedB0EcalNeutrals`,
+  `ReconstructedEcalEndcapPNeutrals` and `ReconstructedLFHCALNeutrals`,
+  which the gate therefore counts as owned);
+- `src/algorithms/reco/LambdaReconstruction*` only after the Phase 0
+  checkpoint opens it: it is shared physics code used by the MSF analysis,
+  and its windows (`pi0Window`, `lambdaMassWindow`) are frozen while the
+  clustering is tuned, because widening them raises the Λ count without
+  any clustering improvement.
 
 Shared algorithms (`ImagingTopoCluster`, `HEXPLIT`, `CalorimeterIslandCluster`,
 `CalorimeterClusterRecoCoG`, `CalorimeterClusterShape`) serve other
 calorimeters. They may be edited only in the algorithm phase, under the guard
 that every non-ZDC collection stays byte-identical to the reference.
 
-Parameters need no rebuild: every config value above is a JANA parameter,
-set on the command line as `-P<factory>:<name>=<value>` (for example
-`-PHcalFarForwardZDCImagingProtoClusters:neighbourLayersRange=3`). Code
-changes need a rebuild (30 to 60 minutes clean, minutes incremental).
+Most parameters need no rebuild: `neighbourLayersRange`, the thresholds,
+the calibration coefficients and `gammaMaxLength` are JANA parameters, set
+on the command line as `-P<factory>:<name>=<value>` (for example
+`-PHcalFarForwardZDCImagingProtoClusters:neighbourLayersRange=3`; values in
+dd4hep units, GeV and cm). The two XY neighbour distances are **not**:
+`ImagingTopoCluster_factory.h` keeps their `ParameterRef` commented out
+(the config type is `vector<variant<string,double>>`). And the distance is
+a step function anyway: HEXPLIT S2 puts every subcell on a 24.4 mm grid
+shared by all layers, so below 24.4 mm there are no lateral neighbours
+(every cluster is a single subcell column — the mechanism behind all three
+review findings), from 24.4 to 48.8 mm the neighbourhood is 3×3 (stock
+36.6 mm), above that 5×5. The missing knob, in the PR and in the issue, is
+`minClusterHitEdep`, the chaining threshold (315 keV per subcell against
+about 160 keV per subcell for a 1-MIP tile). Code changes need a rebuild
+(30 to 60 minutes clean, minutes incremental). `eicrecon` runs with
+parameter strictness 2: a misspelt parameter aborts the run.
+
+The Λ reconstruction has its own cap: photon momenta point from the IP, the
+π⁰ pair is cut at ±10 % of m(π⁰) before any vertex fit, so only Λ decaying
+within about 3.6 m of the IP pass whatever the clustering does, and the
+Λ-gun acceptance at 100 GeV keeps only late decays. That is why the loop
+selects on truth-matched cluster separation and reports the Λ efficiency
+against a truth-cluster ceiling (`docs/expert-review-v1.md`, section 2.2).
 
 ## Where the metrics come from
 

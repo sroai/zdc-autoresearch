@@ -18,8 +18,16 @@ statistics). `docs/zdc-problem.md` has the whole story.
 | `zdc-autoresearch-loop-v2.md` | the phases: 0 foundation, 1 dissect PR 3064, 2 parameter loop, 3 algorithm loop, 4 confirmation at scale and the PR draft |
 
 `autoresearch-loops.md` surveys every autoresearch loop in `~/dev` (what
-existed, what worked, what had to change) and `docs/expert-review-v1.md` is the
-independent review that turned loop v1 into v2.
+existed, what worked, what had to change). `zdc-autoresearch-loop-v1.md` is
+the first draft; `docs/expert-review-v1.md` is the independent review of it
+(22 ranked changes, every code claim with file and line); v2 applies them:
+a truth-matched separation efficiency as the selector instead of the Λ
+efficiency (which `LambdaReconstruction`'s own π⁰ window caps), the Λ code
+and windows frozen while the clustering is tuned, the neutron guarded on raw
+cluster energy, guns on the geometry with the LYSO ECal, a paired test on
+identical events plus a held-out seed set instead of a noise band, and the
+review's mechanism for the three findings (clusters collapsing to single
+subcell columns below the 24.4 mm pitch) as the first hypothesis.
 
 ## Start a run
 

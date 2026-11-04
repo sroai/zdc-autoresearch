@@ -123,10 +123,68 @@ def single_particle(files, mcfg, prefix):
     return out
 
 
+def neutron_raw(files, mcfg):
+    """S3 raw guard: Σ E(clusters) / E_true per momentum (no corrPower), clusters per event, γ-tagged energy fraction."""
+    out = {}
+    for p, fs in by_momentum(files).items():
+        cl = clusters(fs, mcfg)
+        esum = ak.to_numpy(ak.sum(cl["energy"], axis=1)) / p
+        fit = fit_peak(esum, float(np.median(esum)) if len(esum) else 0.0, 0.5)
+        out[f"S3_rawsum_mean_{p}"] = float(np.mean(esum)) if len(esum) else float("nan")
+        out[f"S3_rawsum_sigma_{p}"] = fit[1] if fit else (float(np.std(esum)) if len(esum) else float("nan"))
+        out[f"S3_nclusters_mean_{p}"] = float(ak.mean(ak.num(cl["energy"], axis=1)))
+        try:
+            neutrals = read_collection(fs, mcfg.collections.zdc_neutrals, ["PDG", "energy"])
+            gamma_e = ak.sum(neutrals["energy"][neutrals["PDG"] == 22], axis=1)
+            total_e = ak.sum(neutrals["energy"], axis=1)
+            frac = ak.to_numpy(gamma_e) / np.maximum(ak.to_numpy(total_e), 1e-9)
+            out[f"S3_gamma_tagged_efrac_{p}"] = float(np.mean(frac))
+        except Exception:
+            out[f"S3_gamma_tagged_efrac_{p}"] = float("nan")
+    return out
+
+
+def truth_cells(experiment, dataset, prefix):
+    """S0 (and S1a truth) cells from scripts/410_truth_match.py output, when it exists."""
+    path = PERF / f"truth-{experiment}-{dataset}.json"
+    if not path.exists():
+        return {}
+    t = json.loads(path.read_text())
+    out = {}
+    alls = []
+    for p, per in t["per_momentum"].items():
+        for k, v in per.items():
+            if k.startswith("S0_"):
+                out[f"{prefix}_{k[3:]}_{p}"] = v
+        alls.append(per.get("S0_all_sep", float("nan")))
+    out[f"{prefix}_all_sep_mean"] = float(np.nanmean(alls)) if alls else float("nan")
+    return out
+
+
+def mcnemar(experiment, reference, dataset):
+    """Paired test of the all-separated flag per momentum: discordant counts and the McNemar z (zdc-setup.md, Noise and significance)."""
+    a = PERF / f"truth-{experiment}-{dataset}.json"
+    b = PERF / f"truth-{reference}-{dataset}.json"
+    if not (a.exists() and b.exists()):
+        return {}
+    fa, fb = json.loads(a.read_text())["event_flags"], json.loads(b.read_text())["event_flags"]
+    out = {}
+    for p in fa:
+        if p not in fb:
+            continue
+        ea, eb = dict(zip(fa[p]["events"], fa[p]["all_separated"])), dict(zip(fb[p]["events"], fb[p]["all_separated"]))
+        common = set(ea) & set(eb)
+        gained = sum(1 for e in common if ea[e] and not eb[e])
+        lost = sum(1 for e in common if eb[e] and not ea[e])
+        z = (gained - lost) / np.sqrt(gained + lost) if gained + lost > 0 else 0.0
+        out[p] = {"gained": gained, "lost": lost, "z": float(z), "events": len(common)}
+    return out
+
+
 def s4_lambda(files, mcfg, references):
     out = {}
     window = mcfg.windows.lambda_mass_gev
-    half = references.get("lambda_mass_half_window", 0.03)   # Step 0 writes the ±3σ window into references.json
+    half = float(mcfg.windows.lambda_mass_half_window_gev)   # fixed for the program; R0 may have no peak to fit
     effs = []
     for p, fs in by_momentum(files).items():
         lam = read_collection(fs, mcfg.collections.lambdas, ["mass", "momentum.x", "momentum.y", "momentum.z", "referencePoint.z"])
@@ -141,6 +199,11 @@ def s4_lambda(files, mcfg, references):
             mu, sigma, *_ = fit
             out[f"S4b_mass_mu_{p}"], out[f"S4b_mass_sigma_{p}"] = mu, sigma
         out[f"S4_ncand_per_event_{p}"] = float(ak.mean(ak.num(lam["mass"], axis=1)))
+        try:   # S4c: γ-tagged neutrals per event (fragment combinatorics guard)
+            neutrals = read_collection(fs, mcfg.collections.zdc_neutrals, ["PDG"])
+            out[f"S4c_gammas_per_event_{p}"] = float(ak.mean(ak.sum(neutrals["PDG"] == 22, axis=1)))
+        except Exception:
+            out[f"S4c_gammas_per_event_{p}"] = float("nan")
     out["S4a_eff_mean"] = float(np.mean(effs)) if effs else float("nan")
     return out
 
@@ -196,7 +259,8 @@ def main():
         return wanted is None or ds in wanted
     missing = []
     for ds, fn in [("D1_pi0", lambda f: s1_pi0(f, mcfg)), ("D2_photon", lambda f: single_particle(f, mcfg, "S2")),
-                   ("D3_neutron", lambda f: single_particle(f, mcfg, "S3")), ("D4_lambda", lambda f: s4_lambda(f, mcfg, references))]:
+                   ("D3_neutron", lambda f: {**single_particle(f, mcfg, "S3"), **neutron_raw(f, mcfg)}),
+                   ("D4_lambda", lambda f: s4_lambda(f, mcfg, references))]:
         if not take(ds):
             continue
         fs = files_of(profile, args.experiment, ds)
@@ -204,6 +268,11 @@ def main():
             missing.append(ds)
             continue
         row.update(fn(fs))
+    # truth-matched cells (the selector S0 on D4, S1a-truth on D1) from 410_truth_match.py
+    row.update(truth_cells(args.experiment, "D4_lambda", "S0"))
+    row.update(truth_cells(args.experiment, "D1_pi0", "S1a_truth"))
+    if "S0_all_sep_mean" not in row:
+        print("NOTE: no truth-match output for D4_lambda (run scripts/410_truth_match.py first); S0 cells missing")
     for ds in dcfg.dis.samples:
         if not take(ds):
             continue
@@ -231,22 +300,24 @@ def main():
             w.writerow(r)
         w.writerow(public)
     print(f"row appended to {csv_path}; metrics in {out_json}")
-    for k in ["S1a_frac2_mean", "S4a_eff_mean"] + [k for k in public if k.startswith("G1_") or k.startswith("G2_") or k.startswith("G3_lowE")]:
+    for k in ["S0_all_sep_mean", "S1a_frac2_mean", "S4a_eff_mean"] + [k for k in public if k.startswith("G1_") or k.startswith("G2_") or k.startswith("G3_lowE")]:
         if k in public:
             print(f"  {k:40s} {public[k]}")
 
     if args.compare:
         ref = json.loads((PERF / f"metrics-{args.compare}.json").read_text())
-        band_file = PERF / "noise-band.json"
-        band = json.loads(band_file.read_text()) if band_file.exists() else {}
-        rel = float(mcfg.default_band.relative)
-        print(f"deltas against {args.compare} (band units; band from {'noise-band.json' if band else 'default relative band'}):")
+        sigma = float(mcfg.significance_sigma)
+        print(f"paired test of the selector against {args.compare} (McNemar on the all-separated flag, per momentum):")
+        for p, t in mcnemar(args.experiment, args.compare, "D4_lambda").items():
+            verdict = "SIGNIFICANT" if abs(t["z"]) >= sigma else "not significant"
+            print(f"  {p:>4s} GeV: gained {t['gained']:4d} lost {t['lost']:4d} of {t['events']} events, z = {t['z']:+5.2f}  {verdict}")
+        print(f"other cells (delta, and delta over the quoted error where one exists; guards are judged against configs/metrics.yaml limits):")
         for k in sorted(public):
             if k in ref and isinstance(public[k], (int, float)) and isinstance(ref[k], (int, float)) and not k.endswith("_err"):
-                b = band.get(k) or abs(ref[k]) * rel or 1e-9
-                d = (public[k] - ref[k]) / b
-                flag = "  <-- outside band" if abs(d) > 1 else ""
-                print(f"  {k:40s} {ref[k]:12.5g} -> {public[k]:12.5g}  {d:+6.2f} bands{flag}")
+                d = public[k] - ref[k]
+                err = public.get(k.replace("_eff_", "_eff_err_").replace("_frac2_", "_frac2_err_"), None) if "_eff_" in k or "_frac2_" in k else None
+                extra = f"  {d / err:+6.2f} σ" if isinstance(err, (int, float)) and err > 0 else ""
+                print(f"  {k:40s} {ref[k]:12.5g} -> {public[k]:12.5g}  Δ {d:+10.4g}{extra}")
 
 
 if __name__ == "__main__":

@@ -1,44 +1,85 @@
-# Collection names, windows and bands the scoreboard reads (zdc-setup.md,
-# section Scoreboard). Step 0 verifies every collection name against a
-# reconstructed file (`uproot` keys) and corrects it here once; after that the
-# file is frozen.
+# Collection names, truth-matching definitions, windows and limits the
+# scoreboard reads (zdc-setup.md, sections Scoreboard and Noise and
+# significance). Step 0 verifies every collection and field name against a
+# reconstructed file and corrects this file once; after that it is frozen.
+# Limits marked "user" are set at the Phase 0 checkpoint (question 4) and
+# recorded as D-user entries; until then the agent's proposed defaults apply.
 
 collections:
   zdc_clusters: HcalFarForwardZDCClusters
+  zdc_cluster_assoc: HcalFarForwardZDCClusterAssociations   # edm4eic::MCRecoClusterParticleAssociation: weight, rec -> cluster, sim -> MCParticle
   zdc_rechits: HcalFarForwardZDCRecHits
   zdc_subcell_hits: HcalFarForwardZDCSubcellHits
+  zdc_truth_clusters: HcalFarForwardZDCTruthClusters
   zdc_neutrals: ReconstructedHcalFarForwardZDCNeutrals     # EICrecon main at the pin
-  lambdas: ReconstructedLambdas                            # the benchmarks still say ReconstructedFarForwardZDCLambdas
+  lambdas: ReconstructedLambdas                            # main since 2026-05-29 (#2622); the benchmarks still say ReconstructedFarForwardZDCLambdas
   lambda_decay_cm: ReconstructedLambdaDecayProductsCM
+  lambdas_truthchain: ReconstructedLambdasTruth            # written by the Rt build only
   mc_particles: MCParticles
 
-# Collections that must stay byte-identical to R0 (gate G4): every collection
-# whose name does not start with one of these prefixes.
+# podio relation branches (verified at Step 0 against a file)
+relations:
+  assoc_rec_index: _HcalFarForwardZDCClusterAssociations_rec.index
+  assoc_sim_index: _HcalFarForwardZDCClusterAssociations_sim.index
+  cluster_hits_index: _HcalFarForwardZDCClusters_hits.index
+  mc_daughters_index: _MCParticles_daughters.index
+
+# Collections that must stay identical to R0 (gate G4): every collection whose
+# name does not start with one of these prefixes (the owned list).
 zdc_owned_prefixes:
   - HcalFarForwardZDC
   - EcalFarForwardZDC
   - ReconstructedHcalFarForwardZDCNeutrals
+  - ReconstructedB0EcalNeutrals          # outputs of the one FarForwardNeutralsReconstruction factory
+  - ReconstructedEcalEndcapPNeutrals
+  - ReconstructedLFHCALNeutrals
   - ReconstructedLambdas
   - ReconstructedLambdaDecayProductsCM
   - ReconstructedFarForwardZDC
 
-# Geometry constants used by the scoreboard (benchmark conventions)
+# Geometry constants (benchmark conventions)
 crossing_angle_rad: -0.025
 zdc_face_z_mm: 35800.0
+subcell_pitch_mm: 24.4          # HEXPLIT S2: side_length / 2; the neighbour distance acts as a step function of it
+
+# Truth matching (zdc-setup.md, Scoreboard)
+truth_match:
+  purity_min: 0.8               # best cluster's association weight for the particle
+  containment_min: 0.5          # share of the particle's associated energy held by the best cluster
+  photon_pdg: 22
+  neutron_pdg: 2112
+  lambda_pdg: 3122
+  pi0_pdg: 111
 
 windows:
   pi0_mass_gev: 0.1349768
   lambda_mass_gev: 1.115683
-  lambda_mass_window_sigma: 3.0      # ±3σ of the R0 peak; the absolute window is written to references.json at Step 0
-  high_energy_cluster_gev: 50.0      # G2
-  low_energy_cluster_gev: 1.0        # G3
-  phi_edge_deg: 5.0                  # G1: |phi| within this of 180
+  lambda_mass_half_window_gev: 0.03   # fixed for the program (not "3σ of R0": R0 may have no peak); the Rt ceiling uses the same
+  high_energy_cluster_gev: 50.0       # G2
+  low_energy_cluster_gev: 1.0         # G3
+  phi_edge_deg: 5.0                   # G1: |phi| within this of 180
 
 fits:
-  energy_fit_half_width_rel: 0.1     # the benchmarks fit ±10 % around the momentum
+  energy_fit_half_width_rel: 0.1      # the benchmarks fit ±10 % around the momentum
   mass_fit_bins: 100
+  bootstrap_resamples: 200
 
-# Noise bands are written by Step 0 to space/perf/noise-band.json; the
-# defaults below apply only until that file exists.
-default_band:
-  relative: 0.03
+# Significance of the paired test and the guard limits (zdc-setup.md, Noise and significance)
+significance_sigma: 3.0
+limits:
+  S2_scale_abs_dev_max: 0.05          # |μ/E − 1| per momentum, photon gun            (agent default; user may change)
+  S3_raw_sum_rel_change_max: 0.05     # relative change of Σ E_cluster / E_true vs the current best   (agent default)
+  S3_clusters_per_neutron_max_increase: 0.5
+  S3_gamma_tagged_fraction_max: 0.10  # energy fraction tagged γ in neutron events
+  S4c_gammas_per_event_max: 4.0       # mean γ-tagged neutrals per Λ event
+  G1_phi_at_180_frac_max: null        # user sets at the Phase 0 checkpoint (R0 value + margin proposed by the agent)
+  G1_column_frac_max: null            # fraction of single-(x,y) clusters
+  G2_highE_frac_rel_change_max: null
+  G3_lowE_per_event_max: null
+
+# Frozen through Phases 1 to 3 (zdc-setup.md): no experiment config may set these.
+frozen_parameters:
+  - "ReconstructedLambdas:pi0Window"
+  - "ReconstructedLambdas:lambdaMassWindow"
+  - "ReconstructedLambdas:iterations"
+  - "ReconstructedLambdas:globalToProtonRotation"

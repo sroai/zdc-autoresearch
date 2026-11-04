@@ -1,16 +1,13 @@
 # Reference R0: EICrecon at the pin, stock parameters. One experiment file is
-# one reconstruction configuration; scripts/300_run_experiment.py turns it into
+# one reconstruction configuration; scripts/120_reconstruct.py turns it into
 # the eicrecon command line. Keep every value explicit, so a reader sees the
 # whole configuration without opening EICrecon.
 name: R0_stock
-eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df   # a commit of submodules/EICrecon; the install is install/eicrecon-<sha>
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df   # a commit of submodules/EICrecon; the install is install/eicrecon-<sha12>
 parameters: {}                                            # -P<factory>:<param>=<value> overrides; none for the reference
+nthreads: 1                                               # references and gate runs are single-threaded (deterministic output)
 datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local]
-output_collections:   # what eicrecon writes; MCParticles and the ZDC chain plus everything G4 compares
-  - MCParticles
-  - "*FarForwardZDC*"
-  - ReconstructedHcalFarForwardZDCNeutrals
-  - ReconstructedLambdas
-  - ReconstructedLambdaDecayProductsCM
-  - "*"                 # full output for the G4 byte-identical guard on the DIS samples
+# podio:output_collections entries are regular expressions (JEventProcessorPODIO compiles them);
+# a bare `*` is a regex error. `.*` keeps everything, which the G4 gate on the DIS samples needs.
+output_collections: [".*"]
 notes: the baseline every experiment is measured against

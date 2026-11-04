@@ -31,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from zdc.config import REPO_ROOT, datasets_config, install_dir, load_profile, load_yaml, repo_path  # noqa: E402
+from zdc.config import REPO_ROOT, datasets_config, install_dir, load_profile, load_yaml, metrics_config, repo_path  # noqa: E402
 from zdc.edm import n_events  # noqa: E402
 
 WRAPPER = repo_path("scripts", "100_in_container.sh")
@@ -64,9 +64,15 @@ def run_one(profile, exp, install_c, dataset_id, detector_config, infile, outdir
     meta = outdir / f"{stem}.json"
     if out.exists() and out.stat().st_size > 0 and not args.force:
         return stem, "exists", None
-    collections = ",".join(exp.output_collections) if exp.get("output_collections") else "*"
+    # podio:output_collections entries are regular expressions; ".*" means everything.
+    collections = ",".join(exp.output_collections) if exp.get("output_collections") else ".*"
+    frozen = set(metrics_config().get("frozen_parameters", []))
+    leaked = [k for k in (exp.get("parameters") or {}) if k in frozen]
+    if leaked:
+        sys.exit(f"experiment {exp.name} sets frozen parameters {leaked} (zdc-setup.md, Noise and significance)")
     cmd = ["eicrecon", f"-Ppodio:output_file={to_container(out, profile)}",
            f"-Ppodio:output_collections={collections}", "-Pjana:warmup_timeout=600", "-Pjana:timeout=600",
+           f"-Pjana:nthreads={int(exp.get('nthreads', 1))}",   # single-threaded by default: deterministic output for G4
            *parameter_flags(exp)]
     if args.nevents:
         cmd.append(f"-Pjana:nevents={args.nevents}")

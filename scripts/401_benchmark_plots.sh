@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do case "$1" in --phase) PHASE=$2; shift 2;; --only) ONLY=$2
 CONFIG=epic_zdc_sipm_on_tile_only
 LAYOUT=$DATA_ROOT/benchmark-layout/$EXP; rm -rf "$LAYOUT"; mkdir -p "$LAYOUT"
 PLOTS=$REPO/space/plots/$PHASE/$EXP/benchmarks; mkdir -p "$PLOTS"
-BENCH=$REPO/submodules/detector_benchmarks/benchmarks
+BENCH=$REPO/scripts/700_benchmarks   # copies with EICrecon main collection names (README there)
 
 link_dataset() { # link_dataset <dataset> <benchmark> <stem>   e.g. D1_pi0 zdc_pi0 zdc_pi0 ; D4_lambda zdc_lambda lambda_dec
   local ds=$1 bench=$2 stem=$3 dir="$LAYOUT/sim_output/$2"; mkdir -p "$dir"
@@ -42,10 +42,10 @@ link_dataset() { # link_dataset <dataset> <benchmark> <stem>   e.g. D1_pi0 zdc_p
 IFS=, read -ra WANT <<< "$ONLY"
 for b in "${WANT[@]}"; do
   case "$b" in
-    zdc_pi0)     link_dataset D1_pi0 zdc_pi0 zdc_pi0;       script="python $BENCH/zdc_pi0/analysis/zdc_pi0_plots.py";;
-    zdc_lambda)  link_dataset D4_lambda zdc_lambda lambda_dec; script="python $BENCH/zdc_lambda/analysis/lambda_plots.py";;
-    zdc_photon)  link_dataset D2_photon zdc_photon zdc_photon; script="python $BENCH/zdc_photon/analysis/zdc_photon_plots.py";;
-    zdc_neutron) link_dataset D3_neutron zdc_neutron zdc_neutron; script="root -l -b -q '$BENCH/zdc_neutron/analysis/fwd_neutrons_recon.C'";;
+    zdc_pi0)     link_dataset D1_pi0 zdc_pi0 zdc_pi0;       script="python $BENCH/zdc_pi0_plots.py";;
+    zdc_lambda)  link_dataset D4_lambda zdc_lambda lambda_dec; script="python $BENCH/lambda_plots.py";;
+    zdc_photon)  link_dataset D2_photon zdc_photon zdc_photon; script="python $BENCH/zdc_photon_plots.py";;
+    zdc_neutron) link_dataset D3_neutron zdc_neutron zdc_neutron; script="root -l -b -q '$BENCH/fwd_neutrons_recon.C'";;
     *) echo "unknown benchmark $b"; continue;;
   esac
   out="$LAYOUT/results/$CONFIG/$b"; mkdir -p "$out"

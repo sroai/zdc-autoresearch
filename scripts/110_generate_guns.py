@@ -17,8 +17,12 @@ Usage:
 
 The generator macros take (n_events, seed, out_file, p_min, p_max); the
 benchmarks call them at a single momentum (p_min = p_max). gen_particles.cxx
-(photons) takes the particle name as well; see --help of the macro by reading
-its header. Step 0 verifies every macro signature on a 10-event dry run first.
+(photons) takes the particle name as well. A gun whose `generator` is
+`python-gun` (D3, the neutron scan) gets its HepMC file written here, without
+ROOT: one particle per event from the IP, uniform within theta_max_mrad of the
+proton axis. Step 0 verifies every macro signature on a 10-event run first.
+The dataset ids D1h/D4h (held-out) and D1n/D4n (noise validation) are ordinary
+guns here; their role is fixed in zdc-setup.md.
 """
 import argparse
 import json
@@ -39,7 +43,7 @@ def to_container(path, profile):
     return s.replace(str(REPO_ROOT), profile.repo_mount, 1).replace(str(profile.data_root), profile.data_mount, 1)
 
 
-def macro_call(gun_cfg, generator_c, n_events, seed, out_hepmc_c, momentum):
+def macro_call(gun_cfg, generator_c, n_events, seed, out_hepmc_c, momentum, theta_max_mrad):
     """The ROOT command line for one generator point.
 
     gen_particles.cxx (zdc_photon) has the signature
@@ -48,13 +52,45 @@ def macro_call(gun_cfg, generator_c, n_events, seed, out_hepmc_c, momentum):
     both signatures against the macro headers before the full production.
     """
     if gun_cfg.macro == "gen_particles":
-        args = f'{n_events},{seed},"{out_hepmc_c}","gamma",{momentum},{momentum},0.0,4.0'
+        args = f'{n_events},{seed},"{out_hepmc_c}","{gun_cfg.get("particle", "gamma")}",{momentum},{momentum},0.0,{theta_max_mrad}'
     else:
         args = f'{n_events},{seed},"{out_hepmc_c}",{momentum},{momentum}'
     return f"root -l -b -q '{generator_c}({args})'"
 
 
-def run_point(profile, cfg, gun_id, gun_cfg, momentum, seed, n_events, jobs_lock, dry_run):
+PDG_MASS_GEV = {2112: 0.9395654, 22: 0.0, 211: 0.1395704, -211: 0.1395704, 2212: 0.9382721}
+PDG_BY_NAME = {"neutron": 2112, "gamma": 22, "pi+": 211, "pi-": -211, "proton": 2212}
+
+
+def write_python_gun(path, particle, n_events, seed, momentum, theta_max_mrad, crossing_angle=-0.025):
+    """A HepMC3 ASCII file with one `particle` per event from the IP, uniform in θ ≤ theta_max
+    around the proton beam axis (rotated by the crossing angle, as the benchmark generators do)
+    and uniform in φ. Beam particles carry status 4, the gun particle status 1, so npsim treats
+    the file like the benchmarks' own output. No ROOT needed; the seed makes it reproducible."""
+    import math
+    import random
+    rng = random.Random(seed)
+    pdg = PDG_BY_NAME[particle]
+    mass = PDG_MASS_GEV[pdg]
+    with open(path, "w") as f:
+        f.write("HepMC::Version 3.02.05\nHepMC::Asciiv3-START_EVENT_LISTING\n")
+        for ev in range(n_events):
+            theta = rng.uniform(0.0, theta_max_mrad / 1000.0)
+            phi = rng.uniform(0.0, 2 * math.pi)
+            px, py, pz = momentum * math.cos(phi) * math.sin(theta), momentum * math.sin(phi) * math.sin(theta), momentum * math.cos(theta)
+            # rotate about y by the crossing angle: the proton beam points at (sin a, 0, cos a)
+            a = crossing_angle
+            px, pz = px * math.cos(a) + pz * math.sin(a), -px * math.sin(a) + pz * math.cos(a)
+            e = math.sqrt(px * px + py * py + pz * pz + mass * mass)
+            f.write(f"E {ev} 1 3\nU GEV MM\n")
+            f.write("P 1 0 11 0.0 0.0 10.0 10.0 0.000511 4\n")
+            f.write("P 2 0 2212 0.0 0.0 0.0 0.938 0.938 4\n")
+            f.write("V -1 0 [1,2]\n")
+            f.write(f"P 3 -1 {pdg} {px:.9g} {py:.9g} {pz:.9g} {e:.9g} {mass:.9g} 1\n")
+        f.write("HepMC::Asciiv3-END_EVENT_LISTING\n")
+
+
+def run_point(profile, cfg, gun_id, gun_cfg, momentum, seed, n_events, args, dry_run):
     out_dir = Path(profile.datasets_root) / gun_id
     logs = Path(profile.logs_root) / "sim"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -64,10 +100,17 @@ def run_point(profile, cfg, gun_id, gun_cfg, momentum, seed, n_events, jobs_lock
     edm4hep = out_dir / f"{stem}.edm4hep.root"
     if edm4hep.exists() and edm4hep.stat().st_size > 0:
         return stem, "exists"
-    generator_c = f"{profile.repo_mount}/{gun_cfg.generator}"
-    gen_cmd = macro_call(gun_cfg, generator_c, n_events, seed, to_container(hepmc, profile), momentum)
+    theta_max = float(cfg.get("theta_max_mrad", 4.0))
+    detector_config = args.detector_config or cfg.detector_config_guns
+    if gun_cfg.generator == "python-gun":
+        if not dry_run:
+            write_python_gun(hepmc, gun_cfg.particle, n_events, seed, momentum, theta_max)
+        gen_cmd = "true"
+    else:
+        generator_c = f"{profile.repo_mount}/{gun_cfg.generator}"
+        gen_cmd = macro_call(gun_cfg, generator_c, n_events, seed, to_container(hepmc, profile), momentum, theta_max)
     sim_cmd = (
-        f"npsim --compactFile $DETECTOR_PATH/{cfg.detector_config_guns}.xml --random.seed {seed} "
+        f"npsim --compactFile $DETECTOR_PATH/{detector_config}.xml --random.seed {seed} "
         f"--numberOfEvents {n_events} --physicsList {cfg.physics_list} "
         f"--inputFiles {to_container(hepmc, profile)} --outputFile {to_container(edm4hep, profile)} -v WARNING"
     )
@@ -102,6 +145,7 @@ def main():
     ap.add_argument("--seeds", type=int, nargs="*", help="override the seeds (also drops extra_seeds)")
     ap.add_argument("--events", type=int, help="override the event count per point")
     ap.add_argument("--jobs", type=int, help="parallel npsim processes")
+    ap.add_argument("--detector-config", help="override detector_config_guns (e.g. the SiPM-only cross-check)")
     ap.add_argument("--dry-run", action="store_true", help="print the commands, run nothing")
     args = ap.parse_args()
 
@@ -120,7 +164,7 @@ def main():
     print(f"{len(work)} points, {jobs} parallel")
     results = []
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        futures = [pool.submit(run_point, profile, cfg, g, gc, p, s, n, None, args.dry_run) for g, gc, p, s, n in work]
+        futures = [pool.submit(run_point, profile, cfg, g, gc, p, s, n, args, args.dry_run) for g, gc, p, s, n in work]
         for fut in futures:
             stem, status = fut.result()
             print(f"{status:10s} {stem}")

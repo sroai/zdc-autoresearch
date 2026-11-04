@@ -1,27 +1,28 @@
-# Reference R1: PR 3064 as submitted, expressed as parameter overrides on the
-# pinned main build. Six of the eight changes are JANA parameters already. The
-# two XY neighbour distances are NOT: ImagingTopoCluster_factory.h keeps their
-# ParameterRef commented out (the config type is vector<variant<string,double>>,
-# which ParameterRef cannot parse). Phase 0 adds the parameters
-# `sameLayerDistXYmm` / `diffLayerDistXYmm` (plain doubles in mm, override the
-# config when set) to that factory under the G4 guard, so this file works as
-# written. Until then R1 is reconstructed from the PR's own commit (fdbb773d)
-# and this file is a Phase 0 switch test.
+# Reference R1 as a parameter config: PR 3064's six parameter changes on the
+# pinned main build. The PR's two other changes, the XY neighbour distances
+# 0.75 → 0.3 × side_length (36.6 → 14.64 mm, below the 24.4 mm subcell pitch),
+# are NOT JANA parameters: ImagingTopoCluster_factory.h keeps their ParameterRef
+# commented out (vector<variant<string,double>>). The reference R1 therefore
+# comes from the code build `--label R1` (the PR's three-file diff applied to
+# the pin, space/notes/patches/R1_pr3064.patch); this file is the Phase 0 switch
+# test for the six parameters and, if Step 0 item 7 chose to expose the
+# distances, the full parameter form (add the two lines then).
 name: R1_pr3064
 eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+nthreads: 1
 parameters:
-  HcalFarForwardZDCImagingProtoClusters:neighbourLayersRange: 3
-  HcalFarForwardZDCImagingProtoClusters:sameLayerDistXYmm: "14.64,14.64"   # 0.3 * 48.8 mm (stock: 0.75 * 48.8 = 36.6); Phase 0 parameter
-  HcalFarForwardZDCImagingProtoClusters:diffLayerDistXYmm: "14.64,14.64"
-  HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005         # GeV (5 MeV; stock 25 MeV)
-  HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2                  # stock 10
-  ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "16.65,0.66" # stock 2.4,0.89
+  HcalFarForwardZDCImagingProtoClusters:neighbourLayersRange: 3            # stock 1
+  HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005        # GeV (dd4hep units): 5 MeV; stock 0.025
+  HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2                 # stock 10
+  ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "16.65,0.66" # stock 2.4,0.89 — fitted on the PR's column clusters
   ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "2.7,1.27"     # stock 1.1,0.98
-  ReconstructedFarForwardNeutrals:gammaMaxLength: 150                        # stock 100
+  ReconstructedFarForwardNeutrals:gammaMaxLength: 150                        # stock 100 (dd4hep mm)
+  # Step 0 item 7 (a) only:
+  # HcalFarForwardZDCImagingProtoClusters:sameLayerDistXY: "1.464,1.464"    # dd4hep cm, if exposed as a 2-vector parameter
+  # HcalFarForwardZDCImagingProtoClusters:diffLayerDistXY: "1.464,1.464"
 datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local]
-output_collections: ["*"]
+output_collections: [".*"]
 notes: >
-  The parameter names and units above are what the factories register (JANA
-  prints them with -Pjana:parameter_strictness or in the dump_flags plugin);
-  Step 0 checks each one against the parameter table of the built eicrecon
-  and that an override changes the output (the switch test).
+  eicrecon runs with parameter strictness 2, so a misspelt name aborts the
+  run; the switch test (Phase 0 item 9) catches registered-but-inert ones, on
+  the dataset where each parameter acts.

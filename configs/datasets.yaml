@@ -1,30 +1,46 @@
 # The frozen datasets of the program (zdc-setup.md, section Datasets).
-# scripts/110_generate_guns.py reads the gun entries; scripts/111_fetch_dis_inputs.sh
+# scripts/110_generate_guns.py reads `guns`; scripts/111_fetch_dis_inputs.sh
 # reads `dis`; scripts/112_msf_sample.sh reads `msf`. Frozen after Phase 0:
 # a change here is a question, never an edit.
 
-detector_config_guns: epic_zdc_sipm_on_tile_only
+detector_config_guns: epic_zdc_lyso_sipm          # LYSO crystal ECal + SiPM-on-tile HCal, as in every physics sample
+detector_config_guns_alt: epic_zdc_sipm_on_tile_only   # what the benchmarks' CI uses; a cross-check, one flag away
 detector_config_dis: epic_craterlake_18x275
 physics_list: FTFP_BERT
+theta_max_mrad: 4.0                                # the guns' acceptance around the proton axis
 
+# Every seed is explicit: the benchmark generators clock-seed when given 0.
 guns:
   D1_pi0:
     generator: submodules/detector_benchmarks/benchmarks/zdc_pi0/analysis/gen_pi0_decay.cxx
-    macro: gen_pi0_decay          # the ROOT function name inside the generator file
-    momenta_gev: [60, 80, 100, 130, 160]
+    macro: gen_pi0_decay
+    momenta_gev: [20, 30, 50, 70, 60, 80, 100, 130, 160]   # Λ-daughter π⁰ energies (6 to 25 % of E_Λ) plus the benchmark's
     events: 2000
     seeds: [1]
-    extra_seeds: {100: [2]}       # the noise-band twin
+  D1h_pi0_heldout:
+    generator: submodules/detector_benchmarks/benchmarks/zdc_pi0/analysis/gen_pi0_decay.cxx
+    macro: gen_pi0_decay
+    momenta_gev: [30, 70, 100]
+    events: 2000
+    seeds: [101]
+  D1n_pi0_noise:
+    generator: submodules/detector_benchmarks/benchmarks/zdc_pi0/analysis/gen_pi0_decay.cxx
+    macro: gen_pi0_decay
+    momenta_gev: [100]
+    events: 2000
+    seeds: [2, 3]
   D2_photon:
     generator: submodules/detector_benchmarks/benchmarks/zdc_photon/analysis/gen_particles.cxx
     macro: gen_particles
-    momenta_gev: [20, 30, 50, 70, 100, 150, 200]   # Step 0 replaces with the benchmark's Snakefile values
+    particle: gamma
+    momenta_gev: [20, 30, 50, 70, 100, 150, 200, 275]
     events: 1000
     seeds: [1]
   D3_neutron:
-    generator: submodules/detector_benchmarks/benchmarks/zdc_neutron/gen_forward_neutrons.cxx
-    macro: gen_forward_neutrons
-    momenta_gev: [20, 30, 50, 70, 100, 150, 200]   # Step 0 replaces with the benchmark's Snakefile values
+    generator: python-gun                # HepMC written by 110_generate_guns.py: one neutron per event from the IP, uniform θ inside
+    macro: ""                            # theta_max_mrad around the proton axis (the benchmark's generator hard-codes 100 GeV, 6 mrad)
+    particle: neutron
+    momenta_gev: [20, 50, 100, 150, 200, 275]
     events: 1000
     seeds: [1]
   D4_lambda:
@@ -33,28 +49,45 @@ guns:
     momenta_gev: [100, 125, 150, 175, 200, 225, 250, 275]
     events: 2000
     seeds: [1]
-    extra_seeds: {175: [2]}
+  D4h_lambda_heldout:
+    generator: submodules/detector_benchmarks/benchmarks/zdc_lambda/analysis/gen_lambda_decay.cxx
+    macro: gen_lambda_decay
+    momenta_gev: [125, 175, 250]
+    events: 2000
+    seeds: [101]
+  D4n_lambda_noise:
+    generator: submodules/detector_benchmarks/benchmarks/zdc_lambda/analysis/gen_lambda_decay.cxx
+    macro: gen_lambda_decay
+    momenta_gev: [175]
+    events: 2000
+    seeds: [2, 3]
 
 dis:
   # Official campaign FULL (DD4hep) files, the reviewers' own inputs. Step 0 fills
   # `campaign` with the newest campaign that has these paths and lists the files
-  # it fetched in the manifest. Fallback: npsim of the EVGEN files named in
+  # it fetched in the manifest. Sized in R0 ZDC clusters, not events. Fallback:
+  # npsim of the EVGEN files named in
   # submodules/EICrecon/.github/workflows/linux-eic-shell.yml (jobs npsim-dis, npsim-dis-nc).
   xrootd_base: root://dtn2304.jlab.org:8443//jlab-osdf-ro/eic/EPIC/volatile/FULL
   campaign: ""                      # Step 0 fills, e.g. 26.10.0
   samples:
     D5_dis_minq2_100:
       path: "{campaign}/epic_craterlake_18x275/DIS/NC/18x275/minQ2=100"
-      min_events: 2000
+      min_events: 2000              # the first fetch target; Step 0 raises it until min_clusters is met
+      min_clusters: 2000            # R0 ZDC clusters (36 φ bins × 50 entries with margin)
     D5_dis_minq2_0:
       path: "{campaign}/epic_craterlake_18x275/SIDIS/pythia6-eic/1.0.0/18x275/q2_0to1"
       min_events: 2000
+      min_clusters: 2000
 
 msf:
   D6a_local:
     dd4hep_dir: /data/meson-structure-2026-07/dd4hep/9x130
-    detector_config: epic_craterlake_9x130     # Step 0 confirms from the campaign config
+    file_glob: "msf_9x130_1000evt_*.edm4hep.root"
+    detector_config: epic_craterlake_9x130     # Step 0 confirms from the campaign documentation
+    background: unknown                         # Step 0 fills: whether the dd4hep step read bg_merged
   D6b_farm:
     energies: [9x275, 9x130]
     files_per_energy: 100
     dd4hep_root: /work/eic3/users/romanov/meson-structure-2026-07/dd4hep
+    file_pattern: "msf_{energy}_1000evt_{index:04d}.edm4hep.root"   # Step 0 confirms against the farm listing
