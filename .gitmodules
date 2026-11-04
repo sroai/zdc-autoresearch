@@ -1,0 +1,15 @@
+[submodule "submodules/EICrecon"]
+	path = submodules/EICrecon
+	url = https://github.com/eic/EICrecon.git
+[submodule "submodules/detector_benchmarks"]
+	path = submodules/detector_benchmarks
+	url = https://github.com/eic/detector_benchmarks.git
+[submodule "submodules/epic-capybara"]
+	path = submodules/epic-capybara
+	url = https://github.com/eic/epic-capybara.git
+[submodule "submodules/meson-structure"]
+	path = submodules/meson-structure
+	url = https://github.com/JeffersonLab/meson-structure.git
+[submodule "submodules/skill-eicrecon"]
+	path = submodules/skill-eicrecon
+	url = https://github.com/eic/skill-eicrecon.git

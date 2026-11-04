@@ -1,0 +1,16 @@
+# Bulky outputs never enter git
+/data/
+/build/
+/out/
+*.root
+*.hepmc
+*.hepmc3
+*.sif
+__pycache__/
+.venv/
+*.pyc
+.snakemake/
+/space/plots/**/*.png
+!/space/plots/**/README.md
+/space/perf/
+.idea/
