@@ -1,5 +1,5 @@
 ---
-name: pptx-deck-builder
+name: slides
 description: >
   Build or update PowerPoint decks as rerunnable python-pptx scripts —
   progress decks, design/architecture decks, conference talks. Use whenever

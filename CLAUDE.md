@@ -22,10 +22,16 @@ during the run; add `please-git` if commits are allowed this run.
    fail on a damaged copy; every parameter switch has been seen to change an
    output; the reference R0 reproduces at every run start. A check that has
    only ever printed PASS proves nothing.
-3. **One fixed scoreboard, one primary metric, held-out confirmation.** Every
-   experiment reports the whole scoreboard row (`zdc-setup.md`, Scoreboard);
-   S4a decides; S3 and G4 guard; D6b (MSF at scale) confirms and never
-   selects.
+3. **One fixed scoreboard, one selector, held-out confirmation.** Every
+   experiment reports the whole scoreboard row (`zdc-setup.md`, Scoreboard).
+   S0, the truth-matched separation efficiency on the Λ gun, decides, by a
+   paired test on identical events. S2 photon scale, S3 raw neutron energy,
+   S4b, S4c and G1 to G3 (within the limits the user set) guard; G4
+   (non-ZDC collections identical) gates. D1h and D4h (fresh seeds) are
+   checked at checkpoints and revert an overfit; D6b (MSF at scale)
+   confirms and never selects. S4a, the Λ efficiency, is reported against
+   its truth-cluster ceiling and never selects: `LambdaReconstruction` and
+   its windows are frozen while the clustering is tuned.
 
 ## Where to look
 

@@ -26,7 +26,7 @@ EXP=${1:?usage: $0 <experiment> --phase <phase> [--only a,b]}; shift
 PHASE=""; ONLY="zdc_pi0,zdc_lambda,zdc_photon,zdc_neutron"
 while [ $# -gt 0 ]; do case "$1" in --phase) PHASE=$2; shift 2;; --only) ONLY=$2; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
 [ -n "$PHASE" ] || { echo "--phase required" >&2; exit 2; }
-CONFIG=epic_zdc_sipm_on_tile_only
+CONFIG=$(sed -n "s/^detector_config_guns:[[:space:]]*\([^#]*\).*/\1/p" "$REPO/configs/datasets.yaml" | tr -d " ")   # a label in the layout path only
 LAYOUT=$DATA_ROOT/benchmark-layout/$EXP; rm -rf "$LAYOUT"; mkdir -p "$LAYOUT"
 PLOTS=$REPO/space/plots/$PHASE/$EXP/benchmarks; mkdir -p "$PLOTS"
 BENCH=$REPO/scripts/700_benchmarks   # copies with EICrecon main collection names (README there)

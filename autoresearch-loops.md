@@ -172,37 +172,72 @@ From the web survey (sources at the end):
 | editable surface | the ZDC-owned files of EICrecon and per-experiment parameter configs; everything else frozen by the hook |
 | evaluator | the scoreboard script + capybara + the benchmarks' own plot scripts, frozen after Phase 0, proven to fail on damaged copies, re-proven at every run start |
 | two tiers | parameter experiments via `-P` overrides on the pinned build (minutes, no rebuild); code experiments as patches with a rebuild |
-| primary metric | Λ-gun efficiency S4a (the physics goal, cheap enough per experiment); S1 π⁰ separation is a diagnostic, never the verdict |
-| guards | neutron gun S3 in band; non-ZDC collections byte-identical (G4, the gate); the three review findings as numbers G1 to G3, each inside its band or explained by a mechanism |
-| noise | seed twins and reruns at Step 0; a change inside the band is not a change; one repeat allowed within 1.5 bands |
-| held-out | MSF at scale (D6b) on the farm, confirmation only, never selection |
+| selector | S0, the truth-matched separation efficiency on the Λ gun (per true photon and neutron: best cluster purity ≥ 0.8, containment ≥ 0.5), judged by a paired test on identical events; the Λ efficiency S4a is reported against a truth-cluster ceiling and never selects, because `LambdaReconstruction`'s own π⁰ window caps it and its parameters could game it |
+| guards | photon energy scale (S2), the neutron's raw cluster-energy sum and cluster count (S3), Λ width (S4b), γ-tagged neutrals per event (S4c), and the three review findings as numbers (G1 to G3, with the single-column diagnostic) inside limits the user set at the Phase 0 checkpoint; non-ZDC collections identical (G4, the gate) |
+| noise | determinism check; McNemar on discordant events and an event bootstrap, validated on three independent seeds at Step 0; held-out seed sets D1h and D4h reconstructed only at checkpoints, reverting an accepted change that does not reproduce there |
+| held-out | D1h, D4h at checkpoints; MSF at scale (D6b) on the farm, confirmation only, never selection |
 | human cadence | report every 5 experiments, stop for review every 10; the benchmark plots the reviewers know; questions only about physics, scope, frozen items |
 | record | phase ledger + experiment ledger (two-step entries) + decisions with `D-user`/`D-default` + findings index + runlog; scoreboard.csv as the one table slides and the PR draft load |
 | farm | two skills with every quirk hit since 2026-07; logs in `/farm_out`, `%16`, 2 GB/CPU, `--gres=disk`, no `/tmp`, atomic deliverables |
 | resumability | STATUS ≤ 40 lines with LIVE and RESUME; everything on disk; the hook and the manifests make a mid-run death cost nothing |
 
-## 6. What must still improve (open)
+## 6. What the expert review changed (v1 → v2)
 
-1. The acceptance rule has a human-sized hole: "G1 to G3 explained by a
-   mechanism" is judged by the agent. The expert review (`docs/expert-review-v1.md`)
-   is asked to tighten it; version 2 records the answer.
-2. The parameter tier does not cover the two XY neighbour distances
-   (`ImagingTopoCluster_factory.h` comments their `ParameterRef` out). Phase 0
-   adds them as parameters under the byte-identical guard; if that proves
-   unsound, distances become code-tier experiments.
-3. Whether 26.06-simulated MSF files reconstruct correctly in the 26.11
-   image is unknown until Step 0 item 6 runs. The loop has a fallback (the
-   Λ gun) and a question.
-4. The autonomous container (`eicdev/eic-claude`) carries an EICrecon
+An independent reviewer read v1, the EICrecon sources at the pin and the
+benchmarks (`docs/expert-review-v1.md`, 22 ranked changes with file and
+line). The verdict on v1: it would converge on a number, not on a
+reconstruction the reviewers merge. What changed:
+
+1. **The selector.** v1 selected on the Λ-gun efficiency. The review showed
+   it is capped by `LambdaReconstruction` itself (photon momenta point from
+   the IP, the π⁰ pair is cut at ±10 % before any vertex fit, so only decays
+   within about 3.6 m pass; near zero at 100 GeV by the gun's acceptance) and
+   gameable through parameters the loop owned (the π⁰ and Λ windows, a
+   calibration refit that inflates photons, fragment combinatorics). v2
+   selects on truth-matched cluster separation, freezes the Λ code and its
+   windows, guards the photon scale and the neutron's raw energy, and
+   reports the Λ efficiency against a truth-cluster ceiling.
+2. **The mechanism, written down first.** HEXPLIT S2 puts every subcell on a
+   24.4 mm grid; the PR's 14.6 mm neighbour distance is below it, so every
+   cluster becomes a single subcell column: intrinsic φ exactly ±180°,
+   showers shattered into shards (the three review findings). v2's Phase 1 is
+   a confirmation of that one hypothesis with a single-column diagnostic,
+   not an eight-way dissection; the distance scan is three discrete settings.
+3. **Guards judged by the user's limits**, set at a Phase 0 checkpoint, not
+   by the agent's "explained by a mechanism". Six checkpoint questions with
+   defaults replace the late Phase 1 question.
+4. **Noise.** The single-pair band is gone: a determinism check, a paired
+   test on identical events validated on three seeds, and held-out seed sets
+   at checkpoints that revert an overfit.
+5. **Datasets.** Guns on the geometry with the LYSO ECal in front of the
+   HCal (every physics sample has it; the ZDC-only benchmark config does
+   not); π⁰ momenta at the Λ-daughter energies (20 to 70 GeV) as well as the
+   benchmark's; a neutron scan instead of the benchmark's single 100 GeV
+   point; D5 sized in ZDC clusters, not events.
+6. **Tooling facts.** R1 is the PR's three-file diff on the pin (the PR's
+   base is 14 commits behind); `podio:output_collections` entries are
+   regexes; gate runs are single-threaded; the benchmark plot scripts use
+   stale collection names and exit quietly, so patched copies live under
+   `scripts/700_benchmarks/`; four findings about upstream code are
+   pre-registered for Phase 0 to verify.
+
+## 7. What must still improve (open)
+
+1. Whether 26.06-simulated MSF files reconstruct correctly in the 26.11
+   image is unknown until Step 0 item 6 runs (hit-level comparison). The
+   loop has a fallback (the Λ gun) and a question.
+2. The autonomous container (`eicdev/eic-claude`) carries an EICrecon
    dependency stack that is not the official one; this program runs the
    agent on the host and every EIC command inside the official `eic_xl`
    image through a wrapper. Whether the host agent in auto mode plus a
    docker wrapper is as robust as the container runs of 2026-07 to 10 is the
    first thing Phase 0 shows.
-5. A standalone skeptical evaluator (a subagent that reads the ledger entry
-   and the plots and argues against the verdict) is cheap and is not in
-   version 1; the review decides whether version 2 adds it at the
-   checkpoint.
+3. A standalone skeptical evaluator (a subagent that reads a ledger entry
+   and the numbers and argues against the verdict before it is accepted) is
+   cheap and still not in v2; it is the one review suggestion left for the
+   first checkpoint to decide on.
+4. Every script was written without being executed; Phase 0 is where the
+   contracts in the loop file meet the real files.
 
 ## Web survey sources
 

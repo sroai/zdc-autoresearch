@@ -60,14 +60,18 @@ Phase 0 by hand, on this workstation:
 docker pull eicweb/eic_xl:26.11.0-stable
 scripts/101_check_environment.sh --record-digest
 scripts/102_build_eicrecon.sh                       # the pin; 30 to 60 minutes
-scripts/102_build_eicrecon.sh --ref fdbb773d        # PR 3064
-uv run scripts/110_generate_guns.py                 # D1..D4 with npsim, ZDC-only geometry
+# R1 = PR 3064's three-file diff applied to the pin (never the PR commit: its base is 14 commits behind):
+( cd submodules/EICrecon && git fetch origin pull/3064/head && git diff 66b8cf62 fdbb773d -- src/detectors/ZDC/ZDC.cc src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h src/global/reco/reco.cc > ../../space/notes/patches/R1_pr3064.patch && git apply ../../space/notes/patches/R1_pr3064.patch )
+scripts/102_build_eicrecon.sh --label R1 && ( cd submodules/EICrecon && git checkout -- . )
+uv run scripts/110_generate_guns.py                 # D1..D4, held-out and noise sets, npsim on epic_zdc_lyso_sipm
 scripts/111_fetch_dis_inputs.sh --list              # pick the campaign, then without --list
 scripts/112_msf_sample.sh                           # the local MSF files
 uv run scripts/120_reconstruct.py configs/experiments/R0_stock.yaml
-uv run scripts/120_reconstruct.py configs/experiments/R1_pr3064.yaml
+uv run scripts/120_reconstruct.py configs/experiments/R1_pr3064.yaml --install /data/zdc-autoresearch/install/eicrecon-R1
 scripts/131_prove_gates.sh /data/zdc-autoresearch/reco/R0_stock/D5_dis_minq2_100/<file>.edm4eic.root
+uv run scripts/410_truth_match.py R0_stock          # the selector S0 needs the truth match first
 uv run scripts/400_scoreboard.py R0_stock
+uv run scripts/410_truth_match.py R1_pr3064
 uv run scripts/400_scoreboard.py R1_pr3064 --compare R0_stock
 uv run scripts/200_cluster_distributions.py R0_stock R1_pr3064 --phase phase0
 scripts/401_benchmark_plots.sh R0_stock --phase phase0
