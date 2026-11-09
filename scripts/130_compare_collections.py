@@ -34,7 +34,12 @@ from zdc.config import metrics_config, repo_path  # noqa: E402
 
 
 def collection_of(branch):
-    return branch.split(".")[0].split("/")[0]
+    """The podio collection a branch belongs to. Relation branches are `_<collection>_<relation>`
+    (e.g. `_HcalFarForwardZDCClusters_hits`): they belong to <collection>, so a ZDC relation is ZDC."""
+    head = branch.split(".")[0].split("/")[0]
+    if head.startswith("_") and "_" in head[1:]:
+        head = head[1:].rsplit("_", 1)[0]
+    return head
 
 
 def is_zdc(branch, prefixes):
@@ -44,8 +49,9 @@ def is_zdc(branch, prefixes):
 def compare(ref_path, new_path, prefixes, zdc_side, rtol):
     ref = uproot.open(ref_path)["events"]
     new = uproot.open(new_path)["events"]
-    ref_branches = {b for b in ref.keys() if is_zdc(b, prefixes) == zdc_side}
-    new_branches = {b for b in new.keys() if is_zdc(b, prefixes) == zdc_side}
+    # Leaf branches only: a record's parent branch repeats its leaves and cannot be flattened to numbers.
+    ref_branches = {b for b in ref.keys() if not ref[b].branches and is_zdc(b, prefixes) == zdc_side}
+    new_branches = {b for b in new.keys() if not new[b].branches and is_zdc(b, prefixes) == zdc_side}
     side = "ZDC" if zdc_side else "non-ZDC"
     if ref.num_entries != new.num_entries:
         return False, f"entry count differs: {ref.num_entries} vs {new.num_entries}"
@@ -53,7 +59,7 @@ def compare(ref_path, new_path, prefixes, zdc_side, rtol):
         missing = sorted(ref_branches - new_branches)[:5]
         extra = sorted(new_branches - ref_branches)[:5]
         return False, f"{side} branch sets differ: missing in new {missing}, extra in new {extra}"
-    checked = 0
+    checked, unreadable = 0, []
     for branch in sorted(ref_branches):
         try:
             a = ref[branch].array(library="ak")
@@ -61,6 +67,7 @@ def compare(ref_path, new_path, prefixes, zdc_side, rtol):
         except Exception as e:  # a branch uproot cannot read (podio metadata vectors): compared by count only
             if ref[branch].num_entries != new[branch].num_entries:
                 return False, f"{branch}: entries differ ({e})"
+            unreadable.append(branch)
             continue
         if ak.num(a, axis=1).tolist() != ak.num(b, axis=1).tolist() if a.ndim > 1 else len(a) != len(b):
             counts_a, counts_b = (ak.num(a, axis=1), ak.num(b, axis=1)) if a.ndim > 1 else (len(a), len(b))
@@ -76,7 +83,8 @@ def compare(ref_path, new_path, prefixes, zdc_side, rtol):
             idx = int(np.argmax(va != vb)) if len(va) == len(vb) else -1
             return False, f"{branch}: values differ, first at flat index {idx} ({va[idx] if idx >= 0 else '?'} vs {vb[idx] if idx >= 0 else '?'})"
         checked += 1
-    return True, f"{checked} {side} branches identical over {ref.num_entries} events"
+    note = f"; {len(unreadable)} unreadable leaves compared by entry count only, e.g. {unreadable[:3]}" if unreadable else ""
+    return True, f"{checked} {side} leaves identical over {ref.num_entries} events{note}"
 
 
 def main():
@@ -93,8 +101,10 @@ def main():
     if args.capybara:
         out = Path(args.capybara)
         out.mkdir(parents=True, exist_ok=True)
-        # capybara is a hatch project in the submodule; `uv run --project` resolves it without installing.
-        cmd = ["uv", "run", "--project", str(repo_path("submodules", "epic-capybara")), "capybara", "bara", args.ref, args.new]
+        # capybara runs in an isolated uvx environment built from the submodule: `uv run --project` there fails on
+        # its requires-python range and would write a lock file into the frozen submodule.
+        cmd = ["uvx", "--python", "3.12", "--from", str(repo_path("submodules", "epic-capybara")), "capybara", "bara",
+               str(Path(args.ref).resolve()), str(Path(args.new).resolve())]
         with open(out / "capybara.log", "w") as lf:
             rc = subprocess.call(cmd, cwd=out, stdout=lf, stderr=subprocess.STDOUT)
         print(f"capybara: rc={rc}, report under {out} (log capybara.log)")

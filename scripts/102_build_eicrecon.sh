@@ -39,16 +39,19 @@ mkdir -p "$BUILD_ROOT" "$INSTALL_ROOT" "$LOGS"
 LOG=$LOGS/build-$LABEL.log
 echo "building $SRC ($SHA) -> $INSTALL, log $LOG"
 
-# Container paths: the repo is /work, the data root is /data. A source tree under
+# Container paths: the repo is /work, the data root is data_mount (its host path). A source tree under
 # the data root is already a container path; the submodule needs translating.
-to_container() { echo "$1" | sed "s|^$REPO|/work|; s|^$DATA_ROOT|/data|"; }
+DATA_MOUNT=$(yaml_get data_mount); DATA_MOUNT=${DATA_MOUNT:-$DATA_ROOT}
+to_container() { echo "$1" | sed "s|^$REPO|/work|; s|^$DATA_ROOT|$DATA_MOUNT|"; }
 SRC_C=$(to_container "$SRC"); BUILD_C=$(to_container "$BUILD"); INSTALL_C=$(to_container "$INSTALL")
 
 start=$(date +%s)
-"$REPO/scripts/100_in_container.sh" bash -c "
+# D-user-35: dis-autoresearch has priority; a build takes at most ZDC_BUILD_JOBS cores (default 6) and 16 GB.
+BJ=${ZDC_BUILD_JOBS:-6}; [ "$BJ" -gt "$CORES" ] && BJ=$CORES
+ZDC_CPUS=$BJ ZDC_MEM=16g "$REPO/scripts/100_in_container.sh" bash -c "
   set -e
   cmake -S '$SRC_C' -B '$BUILD_C' -DCMAKE_INSTALL_PREFIX='$INSTALL_C' -DCMAKE_BUILD_TYPE=Release
-  cmake --build '$BUILD_C' --target install -- -j$CORES
+  cmake --build '$BUILD_C' --target install -- -j$BJ
 " > "$LOG" 2>&1 || { echo "BUILD FAILED; tail of $LOG:"; tail -n 40 "$LOG"; exit 1; }
 end=$(date +%s)
 echo "build ok in $((end-start)) s; install $INSTALL"

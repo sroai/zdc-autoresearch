@@ -20,13 +20,14 @@ def gauss(x, A,mu, sigma):
     
 #load the files
 import uproot as ur
+import os
 arrays_sim={}
 momenta=20, 30, 50, 70, 100, 150, 200, 275
 for p in momenta:
     arrays_sim[p] = ur.concatenate({
         f'sim_output/zdc_photon/{config}_rec_zdc_photon_{p}GeV_{index}.edm4eic.root': 'events'
-        for index in range(5)
-    })
+        for index in range(5) if os.path.exists(f'sim_output/zdc_photon/{config}_rec_zdc_photon_{p}GeV_{index}.edm4eic.root')  # zdc-autoresearch: one file per momentum and seed
+    }, filter_name=["HcalFarForwardZDCClusters*", "MCParticles*", "ReconstructedLambda*", "ReconstructedHcalFarForwardZDCNeutrals*"])  # zdc-autoresearch: full-detector files; read only what the plots use
 
 if "ReconstructedHcalFarForwardZDCNeutrals.PDG" not in arrays_sim[p][momenta[0]].fields:
     print("ReconstructedHcalFarForwardZDCNeutrals collection is not available (needs EICrecon 1.23)")

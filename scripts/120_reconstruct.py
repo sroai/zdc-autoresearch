@@ -15,6 +15,7 @@ Usage:
   uv run scripts/120_reconstruct.py configs/experiments/E03_nhits5.yaml --datasets D1_pi0 D4_lambda
   uv run scripts/120_reconstruct.py configs/experiments/R0_stock.yaml --install /data/zdc-autoresearch/install/eicrecon-E12 --jobs 8
   uv run scripts/120_reconstruct.py ... --nevents 50 --dry-run
+  uv run scripts/120_reconstruct.py configs/experiments/T_R0_restricted.yaml --datasets D4_lambda --match 175GeV
 
 The install defaults to {install_root}/eicrecon-<eicrecon_ref[:12]>; a code
 experiment passes its own label with --install. The detector configuration per
@@ -62,7 +63,9 @@ def run_one(profile, exp, install_c, dataset_id, detector_config, infile, outdir
     stem = infile.name.replace(".edm4hep.root", "")
     out = outdir / f"{stem}.edm4eic.root"
     meta = outdir / f"{stem}.json"
-    if out.exists() and out.stat().st_size > 0 and not args.force:
+    # The per-file JSON is written only after a successful run: a full disk once left truncated outputs renamed as
+    # complete (eicrecon exits 0 when ROOT writes fail), so an output without its JSON is redone.
+    if out.exists() and out.stat().st_size > 0 and meta.exists() and not args.force:
         return stem, "exists", None
     # podio:output_collections entries are regular expressions; ".*" means everything.
     collections = ",".join(exp.output_collections) if exp.get("output_collections") else ".*"
@@ -70,14 +73,16 @@ def run_one(profile, exp, install_c, dataset_id, detector_config, infile, outdir
     leaked = [k for k in (exp.get("parameters") or {}) if k in frozen]
     if leaked:
         sys.exit(f"experiment {exp.name} sets frozen parameters {leaked} (zdc-setup.md, Noise and significance)")
-    cmd = ["eicrecon", f"-Ppodio:output_file={to_container(out, profile)}",
+    # eicrecon writes <stem>.part.edm4eic.root, renamed on success: a killed run leaves no file a rerun would skip.
+    partial = outdir / f"{stem}.part.edm4eic.root"
+    cmd = ["eicrecon", f"-Ppodio:output_file={to_container(partial, profile)}",
            f"-Ppodio:output_collections={collections}", "-Pjana:warmup_timeout=600", "-Pjana:timeout=600",
-           f"-Pjana:nthreads={int(exp.get('nthreads', 1))}",   # single-threaded by default: deterministic output for G4
+           f"-Pnthreads={int(exp.get('nthreads', 1))}",   # single-threaded by default: deterministic output for G4 (the JANA2 key is `nthreads`; `jana:nthreads` is unused and aborts under strictness 2)
            *parameter_flags(exp)]
     if args.nevents:
         cmd.append(f"-Pjana:nevents={args.nevents}")
     cmd.append(to_container(infile, profile))
-    shell = f"export DETECTOR_CONFIG={detector_config}; " + " ".join(cmd)
+    shell = f"export DETECTOR_CONFIG={detector_config}; " + " ".join(cmd) + f" && mv {to_container(partial, profile)} {to_container(out, profile)}"
     if args.dry_run:
         print(f"[dry-run] {stem}: EICRECON_INSTALL={install_c} {shell}")
         return stem, "dry-run", None
@@ -98,12 +103,14 @@ def run_one(profile, exp, install_c, dataset_id, detector_config, infile, outdir
 
 
 def main():
+    sys.stdout.reconfigure(line_buffering=True)  # progress lines reach the log as they happen under nohup
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("experiment", help="configs/experiments/<name>.yaml")
     ap.add_argument("--datasets", nargs="*", help="subset of the experiment's datasets")
     ap.add_argument("--install", help="install prefix (host path); default from eicrecon_ref")
     ap.add_argument("--jobs", type=int, help="parallel eicrecon processes (default: profile cores / 2)")
     ap.add_argument("--nevents", type=int, help="limit events per file (smoke runs)")
+    ap.add_argument("--match", help="only input files whose name contains this text (one momentum, one chunk)")
     ap.add_argument("--force", action="store_true", help="redo existing outputs")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -112,7 +119,13 @@ def main():
     profile = load_profile()
     dcfg = datasets_config()
     exp = load_yaml(args.experiment)
-    install = Path(args.install) if args.install else install_dir(profile, exp.eicrecon_ref)
+    # install_label (code builds: R1, truthchain, E<N>) selects install/eicrecon-<label>; otherwise the sha's install
+    if args.install:
+        install = Path(args.install)
+    elif exp.get("install_label"):
+        install = Path(profile.install_root) / f"eicrecon-{exp.install_label}"
+    else:
+        install = install_dir(profile, exp.eicrecon_ref)
     if not install.exists() and not args.dry_run:
         sys.exit(f"install not found: {install} (scripts/102_build_eicrecon.sh --ref {exp.eicrecon_ref})")
     install_c = to_container(install, profile)
@@ -122,7 +135,9 @@ def main():
     work = []
     for ds in datasets:
         indir = Path(profile.datasets_root) / ds
-        files = sorted(indir.glob("*.edm4hep.root"))
+        files = sorted(f for f in indir.glob("*.edm4hep.root") if ".part." not in f.name)  # .part: an unfinished npsim output
+        if args.match:
+            files = [f for f in files if args.match in f.name]
         if not files:
             sys.exit(f"no inputs under {indir} (Phase 0 generates/fetches them)")
         outdir = Path(profile.reco_root) / exp.name / ds

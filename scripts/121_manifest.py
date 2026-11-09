@@ -9,10 +9,11 @@ dataset can be traced to the generator version (work-common.md, the
 missing-artifact row).
 
 Usage:
-  uv run scripts/121_manifest.py write <manifest.json> <dir>... --section guns [--follow-links] [--events]
+  uv run scripts/121_manifest.py write <manifest.json> <dir>... --section guns [--follow-links] [--no-events]
   uv run scripts/121_manifest.py verify <manifest.json> [--section guns]
 """
 import argparse
+import fcntl
 import json
 import subprocess
 import sys
@@ -32,25 +33,33 @@ def git_sha():
 
 
 def write(args):
-    manifest = json.loads(Path(args.manifest).read_text()) if Path(args.manifest).exists() else {}
     entries = {}
     for d in args.dirs:
         for f in sorted(Path(d).rglob("*")):
             if f.suffix not in (".root", ".hepmc") or (f.is_symlink() and not args.follow_links):
                 continue
+            if ".part." in f.name:  # an unfinished npsim output (renamed on success)
+                continue
             if not f.is_file():
                 continue
             entry = {"sha256": sha256_of(f), "bytes": f.stat().st_size}
-            if args.events and f.suffix == ".root":
+            if not args.no_events and f.suffix == ".root":
                 try:
                     entry["events"] = int(n_events(f))
                 except Exception as e:  # a damaged file is a finding, not a crash of the manifest
                     entry["events"] = f"ERR {e}"
             entries[str(f)] = entry
             print(f"{entry['sha256'][:12]}  {entry['bytes']:>12}  {f}")
-    manifest[args.section] = {"_written": datetime.now(timezone.utc).isoformat(timespec="seconds"), "_tool_git_sha": git_sha(), "files": entries}
+    # Read-modify-write under a lock, after the (minutes-long) hashing: two writers of
+    # different sections finishing together lost one section on 2026-11-05.
     Path(args.manifest).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.manifest).write_text(json.dumps(manifest, indent=1, sort_keys=True))
+    with open(str(args.manifest) + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        manifest = json.loads(Path(args.manifest).read_text()) if Path(args.manifest).exists() else {}
+        manifest[args.section] = {"_written": datetime.now(timezone.utc).isoformat(timespec="seconds"), "_tool_git_sha": git_sha(), "files": entries}
+        tmp = Path(str(args.manifest) + ".part")
+        tmp.write_text(json.dumps(manifest, indent=1, sort_keys=True))
+        tmp.replace(args.manifest)
     print(f"wrote {len(entries)} file(s) into section '{args.section}' of {args.manifest}")
 
 
@@ -82,7 +91,7 @@ def main():
     w.add_argument("dirs", nargs="+")
     w.add_argument("--section", required=True)
     w.add_argument("--follow-links", action="store_true")
-    w.add_argument("--events", action="store_true", help="also record the event count of ROOT files")
+    w.add_argument("--no-events", action="store_true", help="skip the event count of ROOT files (counted by default)")
     w.set_defaults(func=write)
     v = sub.add_parser("verify")
     v.add_argument("manifest")

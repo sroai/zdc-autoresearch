@@ -11,7 +11,7 @@
 # Machine facts (image, mounts, data root) come from configs/local.yaml, or from
 # the file $ZDC_CONFIG names. The container runs as the calling user so that
 # every file it writes is owned by you. Paths you pass must be container paths:
-# the repo is /work, the data root is /data (identical to the host path here).
+# the repo is /work; the data root keeps its host path (data_mount in the profile).
 set -euo pipefail
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -24,7 +24,11 @@ IMAGE=$(yaml_get image)
 RUNTIME=$(yaml_get runtime)
 DATA_ROOT=$(yaml_get data_root)
 REPO_MOUNT=$(yaml_get repo_mount); REPO_MOUNT=${REPO_MOUNT:-/work}
-DATA_MOUNT=$(yaml_get data_mount); DATA_MOUNT=${DATA_MOUNT:-/data}
+DATA_MOUNT=$(yaml_get data_mount); DATA_MOUNT=${DATA_MOUNT:-$DATA_ROOT}
+# Read-only inputs outside the data root (the local MSF campaign copy), mounted at their host path.
+MSF_ROOT=$(yaml_get msf_local_root)
+RO_DOCKER=""; RO_APPT=""
+if [ -n "$MSF_ROOT" ] && [ -d "$MSF_ROOT" ]; then RO_DOCKER="-v $MSF_ROOT:$MSF_ROOT:ro"; RO_APPT="-B $MSF_ROOT:$MSF_ROOT:ro"; fi
 [ -n "$IMAGE" ] || { echo "ERROR: no `image:` in $PROFILE" >&2; exit 2; }
 mkdir -p "$DATA_ROOT"
 
@@ -41,17 +45,20 @@ exec "$@"'
 case "$RUNTIME" in
   docker)
     TTY_FLAGS=""; [ -t 0 ] && TTY_FLAGS="-it"
+    # D-user-35: dis-autoresearch on this machine has priority. Every container is capped (ZDC_CPUS cores,
+    # default 1: eicrecon runs single-threaded; ZDC_MEM, default 8g) and weighted low under contention.
     exec docker run --rm $TTY_FLAGS --init \
+      --cpus "${ZDC_CPUS:-1}" --cpu-shares 256 --memory "${ZDC_MEM:-8g}" \
       --user "$(id -u):$(id -g)" \
       -e HOME=/tmp/home -e EICRECON_INSTALL="${EICRECON_INSTALL:-}" \
       -e OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}" \
-      -v "$REPO:$REPO_MOUNT" -v "$DATA_ROOT:$DATA_MOUNT" \
+      -v "$REPO:$REPO_MOUNT" -v "$DATA_ROOT:$DATA_MOUNT" $RO_DOCKER \
       -w "$REPO_MOUNT" \
       "$IMAGE" bash -c "$INNER" bash "$@"
     ;;
   apptainer|singularity)
     exec "$RUNTIME" exec \
-      -B "$REPO:$REPO_MOUNT" -B "$DATA_ROOT:$DATA_MOUNT" \
+      -B "$REPO:$REPO_MOUNT" -B "$DATA_ROOT:$DATA_MOUNT" $RO_APPT \
       --pwd "$REPO_MOUNT" \
       "$IMAGE" bash -c "$INNER" bash "$@"
     ;;

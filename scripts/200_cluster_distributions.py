@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from zdc.config import datasets_config, load_profile, metrics_config, repo_path  # noqa: E402
-from zdc.edm import read_collection  # noqa: E402
+from zdc.edm import read_collection, read_vector_member  # noqa: E402
 
 
 def column_diagnostics(files, mcfg):
@@ -39,19 +39,24 @@ def column_diagnostics(files, mcfg):
         tree = uproot.open(f)["events"]
         try:
             arr = tree.arrays([f"{c.zdc_clusters}.hits_begin", f"{c.zdc_clusters}.hits_end", r.cluster_hits_index,
-                               f"{c.zdc_subcell_hits}.position.x", f"{c.zdc_subcell_hits}.position.y"], library="ak")
+                               f"{c.zdc_subcell_hits}.position.x", f"{c.zdc_subcell_hits}.position.y",
+                               f"{c.zdc_subcell_hits}.position.z"], library="ak")
         except Exception as e:
             print(f"NOTE: column diagnostics unavailable ({e}); the cluster-hit relation or subcell positions are missing from the output")
             return np.array([])
         hb, he = arr[f"{c.zdc_clusters}.hits_begin"], arr[f"{c.zdc_clusters}.hits_end"]
         link = arr[r.cluster_hits_index]
-        hx, hy = arr[f"{c.zdc_subcell_hits}.position.x"], arr[f"{c.zdc_subcell_hits}.position.y"]
+        hx, hy, hz = (arr[f"{c.zdc_subcell_hits}.position.{a}"] for a in "xyz")
+        # The ZDC axis is the proton beam (crossing angle −25 mrad): in global x a subcell column drifts
+        # by ~0.6 mm per layer, so (x, y) are taken in the proton frame and rounded to 1 mm.
+        ca, sa = np.cos(mcfg.crossing_angle_rad), np.sin(mcfg.crossing_angle_rad)
         for ev in range(len(hb)):
             b, e, lk = ak.to_numpy(hb[ev]), ak.to_numpy(he[ev]), ak.to_numpy(link[ev])
-            x, y = ak.to_numpy(hx[ev]), ak.to_numpy(hy[ev])
+            gx, y, gz = ak.to_numpy(hx[ev]), ak.to_numpy(hy[ev]), ak.to_numpy(hz[ev])
+            x = gx * ca - gz * sa
             for i in range(len(b)):
                 idx = lk[b[i]:e[i]]
-                xy = np.round(np.stack([x[idx], y[idx]], axis=1), 1)
+                xy = np.round(np.stack([x[idx], y[idx]], axis=1), 0)
                 distinct.append(len(np.unique(xy, axis=0)) if len(idx) else 0)
     return np.array(distinct)
 
@@ -60,13 +65,11 @@ def load(profile, mcfg, experiment, dataset):
     files = sorted((Path(profile.reco_root) / experiment / dataset).glob("*.edm4eic.root"))
     if not files:
         return None
-    cl = read_collection(files, mcfg.collections.zdc_clusters, ["energy", "nhits", "intrinsicPhi", "intrinsicTheta", "shapeParameters"])
-    shape = cl["shapeParameters"]
-    # shapeParameters: [0..2] widths, [3] ?, [4..6] the three eigenvalues (CalorimeterClusterShape); λ2 is index 5
-    try:
-        lam2 = np.sqrt(np.clip(ak.to_numpy(ak.flatten(shape[:, :, 5])), 0, None))
-    except Exception:
-        lam2 = np.array([])
+    cl = read_collection(files, mcfg.collections.zdc_clusters, ["energy", "nhits", "intrinsicPhi", "intrinsicTheta"])
+    # shapeParameters (CalorimeterClusterShape): [0] radius, [1] dispersion, [2..3] σ_θφ-like widths,
+    # [4..6] the three eigenvalues of the position covariance; √λ2 is index 5. A VectorMember, read
+    # through its begin/end indices (zdc.edm.read_vector_member).
+    lam2 = np.sqrt(np.clip(read_vector_member(files, mcfg.collections.zdc_clusters, "shapeParameters", 5), 0, None))
     return {
         "nev": len(cl["energy"]),
         "energy": ak.to_numpy(ak.flatten(cl["energy"])),

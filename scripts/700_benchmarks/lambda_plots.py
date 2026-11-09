@@ -16,13 +16,14 @@ try:
 except:
     pass
 import uproot as ur
+import os
 arrays_sim={}
 momenta=100, 125, 150, 175,200,225,250,275
 for p in momenta:
     arrays_sim[p] = ur.concatenate({
         f'sim_output/zdc_lambda/{config}_rec_lambda_dec_{p}GeV_{index}.edm4eic.root': 'events'
-        for index in range(5)
-    })
+        for index in range(5) if os.path.exists(f'sim_output/zdc_lambda/{config}_rec_lambda_dec_{p}GeV_{index}.edm4eic.root')  # zdc-autoresearch: one file per momentum and seed
+    }, filter_name=["HcalFarForwardZDCClusters*", "MCParticles*", "ReconstructedLambda*", "ReconstructedHcalFarForwardZDCNeutrals*"])  # zdc-autoresearch: full-detector files; read only what the plots use
 
 def gauss(x, A,mu, sigma):
     return A * np.exp(-(x-mu)**2/(2*sigma**2))

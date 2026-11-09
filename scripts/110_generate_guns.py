@@ -15,12 +15,11 @@ Usage:
   uv run scripts/110_generate_guns.py --only D1_pi0 --momenta 100 --seeds 1 --events 50 --dry-run
   uv run scripts/110_generate_guns.py --jobs 8        # parallel npsim processes (default: profile cores / 2)
 
-The generator macros take (n_events, seed, out_file, p_min, p_max); the
-benchmarks call them at a single momentum (p_min = p_max). gen_particles.cxx
-(photons) takes the particle name as well. A gun whose `generator` is
-`python-gun` (D3, the neutron scan) gets its HepMC file written here, without
+The decay generator macros take (n_events, seed, out_file, p_min, p_max); the
+benchmarks call them at a single momentum (p_min = p_max). A gun whose
+`generator` is `python-gun` (D2 photons, D3 neutrons) gets its HepMC file written here, without
 ROOT: one particle per event from the IP, uniform within theta_max_mrad of the
-proton axis. Step 0 verifies every macro signature on a 10-event run first.
+proton axis (a gun may set its own theta_min_mrad / theta_max_mrad: D2b aims at the B0 ECal). Step 0 verifies every macro signature on a 10-event run first.
 The dataset ids D1h/D4h (held-out) and D1n/D4n (noise validation) are ordinary
 guns here; their role is fixed in zdc-setup.md.
 """
@@ -46,15 +45,14 @@ def to_container(path, profile):
 def macro_call(gun_cfg, generator_c, n_events, seed, out_hepmc_c, momentum, theta_max_mrad):
     """The ROOT command line for one generator point.
 
-    gen_particles.cxx (zdc_photon) has the signature
-    (n_events, seed, out, particle, p_min, p_max, theta_min, theta_max); the
-    decay generators have (n_events, seed, out, p_min, p_max). Step 0 checks
-    both signatures against the macro headers before the full production.
+    The decay generators (gen_pi0_decay, gen_lambda_decay) take
+    (n_events, seed, out, p_min, p_max) and hard-code their θ range.
     """
     if gun_cfg.macro == "gen_particles":
-        args = f'{n_events},{seed},"{out_hepmc_c}","{gun_cfg.get("particle", "gamma")}",{momentum},{momentum},0.0,{theta_max_mrad}'
-    else:
-        args = f'{n_events},{seed},"{out_hepmc_c}",{momentum},{momentum}'
+        # gen_particles(n_events, out, particle, th_min_deg, th_max_deg, phi_min, phi_max, p, dist, crossing)
+        # seeds itself from the clock; a dataset built with it would not be reproducible.
+        raise SystemExit("gen_particles.cxx takes no seed; use generator: python-gun for single-particle guns")
+    args = f'{n_events},{seed},"{out_hepmc_c}",{momentum},{momentum}'
     return f"root -l -b -q '{generator_c}({args})'"
 
 
@@ -62,7 +60,7 @@ PDG_MASS_GEV = {2112: 0.9395654, 22: 0.0, 211: 0.1395704, -211: 0.1395704, 2212:
 PDG_BY_NAME = {"neutron": 2112, "gamma": 22, "pi+": 211, "pi-": -211, "proton": 2212}
 
 
-def write_python_gun(path, particle, n_events, seed, momentum, theta_max_mrad, crossing_angle=-0.025):
+def write_python_gun(path, particle, n_events, seed, momentum, theta_max_mrad, crossing_angle=-0.025, theta_min_mrad=0.0):
     """A HepMC3 ASCII file with one `particle` per event from the IP, uniform in θ ≤ theta_max
     around the proton beam axis (rotated by the crossing angle, as the benchmark generators do)
     and uniform in φ. Beam particles carry status 4, the gun particle status 1, so npsim treats
@@ -75,7 +73,7 @@ def write_python_gun(path, particle, n_events, seed, momentum, theta_max_mrad, c
     with open(path, "w") as f:
         f.write("HepMC::Version 3.02.05\nHepMC::Asciiv3-START_EVENT_LISTING\n")
         for ev in range(n_events):
-            theta = rng.uniform(0.0, theta_max_mrad / 1000.0)
+            theta = rng.uniform(theta_min_mrad / 1000.0, theta_max_mrad / 1000.0)
             phi = rng.uniform(0.0, 2 * math.pi)
             px, py, pz = momentum * math.cos(phi) * math.sin(theta), momentum * math.sin(phi) * math.sin(theta), momentum * math.cos(theta)
             # rotate about y by the crossing angle: the proton beam points at (sin a, 0, cos a)
@@ -98,23 +96,32 @@ def run_point(profile, cfg, gun_id, gun_cfg, momentum, seed, n_events, args, dry
     stem = f"{gun_id}_{momentum}GeV_seed{seed}"
     hepmc = out_dir / f"{stem}.hepmc"
     edm4hep = out_dir / f"{stem}.edm4hep.root"
+    partial = out_dir / f"{stem}.part.edm4hep.root"
     if edm4hep.exists() and edm4hep.stat().st_size > 0:
         return stem, "exists"
-    theta_max = float(cfg.get("theta_max_mrad", 4.0))
+    theta_max = float(gun_cfg.get("theta_max_mrad", cfg.get("theta_max_mrad", 4.0)))   # a gun's own range wins
+    theta_min = float(gun_cfg.get("theta_min_mrad", 0.0))
     detector_config = args.detector_config or cfg.detector_config_guns
     if gun_cfg.generator == "python-gun":
         if not dry_run:
-            write_python_gun(hepmc, gun_cfg.particle, n_events, seed, momentum, theta_max)
+            write_python_gun(hepmc, gun_cfg.particle, n_events, seed, momentum, theta_max, theta_min_mrad=theta_min)
         gen_cmd = "true"
     else:
+        # gen_pi0_decay loops a fixed number of events and drops those outside the acceptance, so it is
+        # asked for generate_factor × n_events; npsim keeps the first n_events. The check after the macro
+        # fails the point when the acceptance left fewer than n_events.
         generator_c = f"{profile.repo_mount}/{gun_cfg.generator}"
-        gen_cmd = macro_call(gun_cfg, generator_c, n_events, seed, to_container(hepmc, profile), momentum, theta_max)
+        n_generate = n_events * int(gun_cfg.get("generate_factor", 1))
+        gen_cmd = macro_call(gun_cfg, generator_c, n_generate, seed, to_container(hepmc, profile), momentum, theta_max)
+        gen_cmd += (f" && n=$(grep -c '^E ' {to_container(hepmc, profile)})"
+                    f" && {{ [ $n -ge {n_events} ] || {{ echo \"ERROR: $n accepted events < {n_events}\"; exit 3; }}; }}")
     sim_cmd = (
         f"npsim --compactFile $DETECTOR_PATH/{detector_config}.xml --random.seed {seed} "
         f"--numberOfEvents {n_events} --physicsList {cfg.physics_list} "
-        f"--inputFiles {to_container(hepmc, profile)} --outputFile {to_container(edm4hep, profile)} -v WARNING"
+        f"--inputFiles {to_container(hepmc, profile)} --outputFile {to_container(partial, profile)} -v WARNING"
     )
-    full = f"set -e; cd /work; {gen_cmd} && {sim_cmd}"
+    # npsim writes to <stem>.part.edm4hep.root, renamed on success: a killed run leaves no file that a rerun would skip.
+    full = f"set -e; cd /work; {gen_cmd} && {sim_cmd} && mv {to_container(partial, profile)} {to_container(edm4hep, profile)}"
     if dry_run:
         print(f"[dry-run] {stem}: {full}")
         return stem, "dry-run"
@@ -139,6 +146,7 @@ def points(gun_id, gun_cfg, args):
 
 
 def main():
+    sys.stdout.reconfigure(line_buffering=True)  # progress lines reach the log as they happen under nohup
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--only", action="append", help="gun id(s) to generate (default: all)")
     ap.add_argument("--momenta", type=int, nargs="*", help="override the momenta (GeV)")
@@ -175,8 +183,11 @@ def main():
         sys.exit(1)
     if not args.dry_run:
         manifest = repo_path("space", "perf", "manifest-datasets.json")
+        # 121 replaces the whole section: list every configured gun on disk, not only this run's (--only), or the
+        # other guns' entries are dropped (seen 2026-11-09 with --only D2b_photon_B0)
+        all_guns = [g for g in cfg.guns if (Path(profile.datasets_root) / g).is_dir()]
         subprocess.check_call([sys.executable, str(repo_path("scripts", "121_manifest.py")), "write", str(manifest),
-                               *[str(Path(profile.datasets_root) / g) for g in guns], "--section", "guns"])
+                               *[str(Path(profile.datasets_root) / g) for g in all_guns], "--section", "guns"])
         print(f"manifest updated: {manifest}")
 
 

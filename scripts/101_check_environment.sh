@@ -39,6 +39,12 @@ for sub in EICrecon detector_benchmarks epic-capybara meson-structure; do
   sha=$(git -C "$REPO/submodules/$sub" rev-parse HEAD 2>/dev/null | cut -c1-8)
   if [ -z "$sha" ]; then fail "submodule $sub not initialized (git submodule update --init)"
   elif grep -q "$sha" "$REPO/zdc-setup.md"; then ok "submodule $sub at $sha (pin)"
+  elif [ "$sub" = EICrecon ] && br=$(git -C "$REPO/submodules/$sub" branch --show-current) && [[ "$br" == zdc-autoresearch/* ]] \
+       && pin=$(git -C "$REPO/submodules/$sub" rev-list --max-count=500 HEAD | cut -c1-8 | while read -r c; do
+                  grep -q "$c" "$REPO/zdc-setup.md" && { echo "$c"; break; }; done) \
+       && [ -n "$pin" ]; then
+    # Phase 4 (D-user-34): tries are commits on a zdc-autoresearch/* branch cut from the pin
+    ok "submodule $sub at $sha on $br, $(git -C "$REPO/submodules/$sub" rev-list --count "$pin"..HEAD) commits above the pin $pin"
   else fail "submodule $sub at $sha, which zdc-setup.md does not name"; fi
 done
 dirty=$(git -C "$REPO/submodules/EICrecon" status --porcelain | wc -l)
@@ -49,10 +55,10 @@ if docker image inspect "$IMAGE" >/dev/null 2>&1; then
   "$REPO/scripts/100_in_container.sh" bash -c '
     ok(){ echo "OK   $*"; }; fail(){ echo "FAIL $*"; exit 1; }
     [ -n "${DETECTOR_PATH:-}" ] && ok "DETECTOR_PATH=$DETECTOR_PATH" || fail "thisepic.sh did not set DETECTOR_PATH"
-    for cfg in epic_zdc_sipm_on_tile_only epic_craterlake_18x275 epic_craterlake_9x130; do
+    for cfg in epic_zdc_lyso_sipm epic_zdc_sipm_on_tile_only epic_craterlake epic_craterlake_9x130 epic_craterlake_9x275; do
       [ -f "$DETECTOR_PATH/$cfg.xml" ] && ok "detector config $cfg.xml" || fail "detector config $cfg.xml missing in the image"
     done
-    ok "eicrecon $(eicrecon --version 2>&1 | head -1)"; ok "npsim $(npsim --version 2>&1 | head -1)"; ok "root $(root-config --version)"
+    ok "eicrecon $(eicrecon --version 2>&1 | head -1)"; ok "npsim $(python -c "import DDSim; print(DDSim.__file__)" 2>&1 | tail -1)"; ok "root $(root-config --version)"
     ok "epic $(cat $DETECTOR_PATH/../../share/epic/version 2>/dev/null || echo unknown)"
   ' || fail "container checks (see above)"
 fi
