@@ -1,0 +1,25 @@
+# Phase 6, Z8 switch proof (off): install Z8, hcalAxisAlternative 0; must reproduce Z7_isolation on file 0001.
+name: T8_z8_switch0
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Z8
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+  reco:ReconstructedFarForwardNeutrals:crystalClusterEmin: 0.3
+  reco:ReconstructedFarForwardNeutrals:crystalColumnRadius: 60
+  reco:ReconstructedFarForwardNeutrals:crystalGammaLaw: "1.9092,44.768,-0.8984"
+  reco:ReconstructedFarForwardNeutrals:crystalColumnNeutronScale: 36.63
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingLambdaSigma: 0.03
+  reco:ReconstructedFarForwardNeutrals:crystalAltColumnOut: 1
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingIsolationWeight: 2.0
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingIsolationLength: 42.5
+  reco:ReconstructedFarForwardNeutrals:hcalAxisAlternative: 0
+  reco:ReconstructedFarForwardNeutrals:hcalAxisRadius: 45
+  reco:ReconstructedFarForwardNeutrals:hcalAxisLaw: "2.5938,45.8981,-1.5994"
+nthreads: 1
+datasets: [D6s_9x275]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Z8 switch proof, off: install Z8 with hcalAxisAlternative 0 must reproduce Z7 (file 0001)"

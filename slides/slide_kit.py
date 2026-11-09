@@ -217,3 +217,32 @@ xmlns:xsd="http://www.w3.org/2001/XMLSchema">
             return True
     print("no PDF converter available — built .pptx only", file=sys.stderr)
     return False
+
+
+def hbars(slide, rows, x, y, scale_w, row_h, vmax, ink, muted, label_w=2.2, size=Pt(12), text_w=4.6, mark=None):
+    """Horizontal bars, one row each: rows = [(label, value or None, color, text)]. A bar of length scale_w × value / vmax
+    starts at x + label_w; its text sits right after it (pass the text width the longest label needs). mark = (value,
+    label) draws a thin vertical rule at that value through every row, its label above the first row (a ceiling, a
+    reachable yield). A None value prints the text where the bar would start."""
+    x0 = x + label_w
+    for i, (label, v, color, text) in enumerate(rows):
+        yy = y + i * row_h
+        box, tf = txbox(slide, x, yy + 0.06, label_w - 0.1, row_h)
+        set_run(tf.paragraphs[0].add_run(), label, size, ink)
+        end = x0
+        if v is not None:
+            bw = max(0.02, scale_w * v / vmax)
+            sh = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x0), Inches(yy + 0.06), Inches(bw),
+                                        Inches(row_h - 0.16))
+            sh.fill.solid(); sh.fill.fore_color.rgb = color; sh.line.fill.background(); sh.shadow.inherit = False
+            end = x0 + bw
+        box, tf = txbox(slide, end + 0.1, yy + 0.06, text_w, row_h)
+        set_run(tf.paragraphs[0].add_run(), text, size, muted)
+    if mark:
+        mx = x0 + scale_w * mark[0] / vmax
+        rule = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(mx - 0.01), Inches(y - 0.05), Inches(0.02),
+                                      Inches(len(rows) * row_h))
+        rule.fill.solid(); rule.fill.fore_color.rgb = muted; rule.line.fill.background(); rule.shadow.inherit = False
+        box, tf = txbox(slide, mx - 2.6, y - 0.38, 2.55, 0.3)
+        p = tf.paragraphs[0]; p.alignment = PP_ALIGN.RIGHT
+        set_run(p.add_run(), mark[1], Pt(11), muted, italic=True)

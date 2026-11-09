@@ -1042,3 +1042,74 @@ D4 of every Phase 5 try (D4P5_Y1, Y2, Y4, Y5, Y7, Y8, Y10; with CP5_1_Y6_D4 and 
 - prediction check: ~1560 / ~252 → 1547 / 250; −t below 0.122 → 0.121: met.
 - verdict: **REJECTED** (463, N_found −29). Patch reverted from the working tree (= Z5); install eicrecon-Z6 kept. The best −t of
   any row at 1797 found (+21 % over Y9): the alternative for Q22.
+
+### Z7_isolation (2026-11-09, code try on Z6, the base by D-user-44)
+- motivation: 477 --why on Z5's settings put "the other photon wrong" first among the missed all-ZDC Λ (227 at 9x275). 480 on
+  Z6's tagged Hcal clusters (10 files, 9x275; `photon-shape-Z6_alt_column_out-D6s_9x275.json`): the shape parameters and
+  depth do not separate photons from neutron fragments (AUC 0.50–0.54, the photon tag already cuts on them); the transverse
+  distance to the most energetic Hcal cluster does (AUC 0.79, within-event 0.82; fragments a median 34.5 mm from the core,
+  photons 88 mm); crystal energy within 30 mm in front 0.64 within-event. On the neutron gun (CAL6_D3_Z6, D3 through Z6,
+  6000 events; 480 --guns, `photon-shape-guns-CAL6_D3_Z6.json`): the 18 168 tagged non-leading clusters sit a median 34.5 mm,
+  mean 42.5 mm from the core — the fragment scale (F4: the length comes from the gun).
+- change: every tagged Hcal photon of a Λ-pairing hypothesis adds w · exp(−d / l) to the score, d its transverse distance
+  (proton frame) to the most energetic Hcal cluster of the event; in chooseLambdaPhotonPair (ZDC pairs, mixed) and
+  chooseCrystalHypothesis (crystal + Hcal, the crystal-law Hcal pairs and their mixed hypotheses). Parameters
+  lambdaPairingIsolationWeight (default 0 = off), lambdaPairingIsolationLength (mm), lambdaPairingIsolationCrystal (crystal
+  photons too; off). Set: w 2, l 42.5 mm (the gun's mean). Switch proof on file 0001 (T7_z7_switch0/1): weight 0 = Z6
+  identical (0 of 500 events differ over 246 Reconstructed* leaves), weight 2 changes 35 of 500 events. Patch
+  space/notes/patches/Z7_isolation.patch (65 added lines, 465 PASS); build Z7 (13:25Z–13:28Z).
+- emulation scan (477 --alt --alt-col-out, Z6's settings, --iso w:l; `crystal-scope-MSF6_Y9-D6s_*-z7iso.json`), pooled net over
+  the emulated Z6 (+335): w 0.5 +27…+40, w 1 +52…+66, w 2 +69…+86, w 4 +72…+87 (l 30 / 60 / 100 mm); N_window falls with w
+  (Z6 +659; w 2 l 60 +617; w 4 l 30 +531). Crystal photons too (--iso-crys, `-z7isoc`): +3…+8 more — left off.
+- hypothesis (before launch, 2026-11-09T13:31Z): "477 at the launch setting (--iso 2:42.5, `-z7gun`): pooled net +423 vs the emulated Z6's
+  +335, i.e. +88 (9x275 +83: all-ZDC +58, γ B0 + γ ZDC +25; 9x130 +5); N_window +617 vs +659 (−42). Predicted N_found
+  9x275 1547 → ~1630, 9x130 250 → ~255 (pooled 1797 → ~1885, z ≈ +6 if b + c ≈ 200); purity 29.1 % → ~30.5 %; −t unchanged
+  within 0.005 GeV² (the term picks photons; energies are unchanged)."
+- launched: 2026-11-09T13:31Z via `300 --phase phase6 --lean --reference MSF6_Y9 --jobs 4`; reconstruction done 13:45Z, integrity
+  clean (80 outputs).
+- result (2026-11-09T13:50Z): N_found 9x275 1547 → 1628 (b 18, c 99; yield 21.61 → 22.74 %), 9x130 250 → 255 (b 1, c 6; 3.49
+  → 3.56 %); pooled 1797 → 1883, b 19 c 105, **z +7.72**; purity 29.1 → 30.4 %, z_P +1.62 (N_window 5327 → 5337, 858 → 861).
+  Fair play PASS: 478 F1a + F1d on the as-built tree (D-user-43; 460 -msf fails F1d on the crystal factories only, as every
+  crystal try), 460 F2–F3 PASS, 460 --tree PASS, 465 PASS, 468 PASS (3698 + 349 crystal-linked neutrals, C1 / C2 0), raw hits
+  identical to MSF6_Y9 (479, 360 leaves, 40 files). −t σ68 0.120 / 0.118 GeV² (Z6 0.121 / 0.120), bias −0.011 / −0.008,
+  within ±0.1 GeV² 59.6 / 63.9 %.
+- prediction check: 1547 → ~1630, 250 → ~255, purity up, −t unchanged → 1628, 255, 30.4 %, 0.120 / 0.118: met (pooled +86
+  vs +88 predicted).
+- verdict: **ACCEPTED** (463). Current best Z7_isolation (patch kept in the working tree, install eicrecon-Z7).
+
+### Z8_hcal_axis_law (2026-11-09, code try on Z7)
+- motivation: 477 --why-all on Z7's settings (9x275, `crystal-scope-MSF6_Y9-D6s_9x275-z7whyall.json`): of 493 missed all-ZDC Λ
+  whose photons both have a pure candidate, 132 are the right pair out of the ±30 MeV window (125 high, Δm median +64 MeV),
+  126 one right + a neutron fragment, 94 one right + a mixed Hcal cluster, 63 one right + a wrong crystal. In the right pairs
+  out of the window the neutron reads 1.02 and the photons are off: Hcal-law photons 0.69 (16–84 % 0.38–1.07, 149), crystal
+  photons 0.45 (75), crystal-law Hcal photons 1.50 (40). (Low photon energies give a high mass: a smaller E₁E₂ widens the
+  expected π⁰ opening angle, the vertex moves deeper, |p_Λ| falls at the same E_Λ.) Photon guns (CAL6_D2_Y9): a photon's
+  Hcal shower splits into several clusters (the leading one holds 45–60 % of the Hcal energy above 5 GeV); the Hcal law on
+  the leading cluster scatters ±24–36 %.
+- the law (481, `calib-hcal-axis-CAL6_D2_Y9.json`, F4): E = a·E_crys + b·E_col + c, E_crys / E_col the crystal / Hcal rec
+  hits within R of the line from the IP through the cluster, 1/E-weighted fit on 5555 gun photons ≤ 50 GeV; R 45 mm:
+  2.594, 45.898, −1.599, median 1.00–1.04 and σ68 ±10–11 % at 10–50 GeV (±18 % at 5 GeV); R 60 mm ±10 %; Hcal rec hits only
+  ±15–23 %.
+- emulation (477 --axis-law R on Z7's settings, every tagged Hcal photon offers the axis energy as a third option; with
+  --alt-col-out its column beyond its cluster leaves the neutron): pooled net over the emulated Z7 (+423): R 45 **+66**
+  (9x275 +59, 9x130 +7), N_window +93; R 60 +31, N_window +36. Λ energy / true of good picks 1.047 (Z7 1.054).
+- change: hcalAxisAlternative (default false), hcalAxisRadius 45, hcalAxisLaw {2.594, 45.898, −1.599}; the axis energy is an
+  AltEnergy without a crystal cluster (kNoCrystal: links none; two such may pair); the column out of the neutron now takes
+  the chosen alternative only (a cluster may carry two). New factory input EcalFarForwardZDCRecHits (reco.cc).
+- hypothesis (before launch, 2026-11-09T14:18Z): "477 --axis-law 45 on Z7's settings: +66 found over the emulated Z7 (9x275 +59, 9x130 +7),
+  N_window +93. Predicted N_found 9x275 1628 → ~1687, 9x130 255 → ~262 (pooled 1883 → ~1949); purity 30.4 → ~31 %; −t σ68
+  at or below Z7's 0.120 (the Λ energy of good picks 1.054 → 1.047 in the emulation)."
+- switch proof on file 0001 (T8_z8_switch0/1, install Z8): hcalAxisAlternative 0 = Z7 identical (0 of 500 events over 246
+  Reconstructed* leaves), 1 changes 66 of 500. Patch space/notes/patches/Z8_hcal_axis_law.patch (92 added lines, 465 PASS);
+  build Z8 (14:14Z–14:17Z, after the header fix: the object is newer than the header).
+- launched: 2026-11-09T14:19Z via `300 --phase phase6 --lean --reference MSF6_Y9 --jobs 4` (preflight PASS, load of others 5.4).
+- result (2026-11-09T14:37Z; reconstruction 14:19Z–14:32Z, integrity clean): N_found 9x275 1628 → 1688 (b 48, c 108; yield
+  22.74 → 23.58 %), 9x130 255 → 258 (b 4, c 7; 3.56 → 3.60 %); pooled 1883 → 1946, b 52 c 115, **z +4.88**; purity 30.4 →
+  30.9 %, z_P +0.64 (N_window 5337 → 5437, 861 → 859). Fair play PASS: 478 F1a + F1d on the as-built tree (460 -msf F1d
+  names the same five crystal-section factories as every crystal try), 460 F2–F3, 460 --tree, 465, 468 (2903 + 261 crystal
+  links, C1 / C2 0), raw hits = MSF6_Y9 (479). **−t σ68 0.114 / 0.118 GeV²** (Z7 0.120 / 0.118), bias −0.007 / −0.003,
+  within ±0.1 GeV² 63.4 / 63.2 % (Z7 59.6 / 63.9 %).
+- prediction check: 1628 → ~1687, 255 → ~262, purity ~31 %, −t ≤ 0.120 → 1688, 258, 30.9 %, 0.114: met (pooled +63 vs +66).
+- verdict: **ACCEPTED** (463). Current best Z8_hcal_axis_law (install eicrecon-Z8).
+- checkpoint 2 (2026-11-09T15:21Z): Z8 on D6h REPRODUCES — vs MSF6_Y9 1411 → 1865 (9x275 1206 → 1621, 9x130 205 → 244), b 90 c 544,
+  z +18.03, purity 25.8 → 30.1 %; vs Z6 1703 → 1865, b 41 c 203, z +10.37. D4 (CP6_2_Z8_D4): S4a_tm 8.42 % mean / 15.99 % at 275 GeV.

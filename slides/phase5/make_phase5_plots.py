@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Phase 4 / Phase 5 comparison plots for the Phase 5 deck (PNG, slides/phase5/plots/).
+"""Phase 4 / Phase 5 comparison plots for the Phase 5 deck (PNG, space/plots/phase5/).
 
 Inputs (read at run time; a missing row is left out of its plot):
   space/perf/msf-regimes-<row>-D6s_<beam>.json   N_found / N_expected and the regime groups (210)
@@ -22,8 +22,8 @@ import numpy as np  # noqa: E402
 REPO = Path(__file__).resolve().parents[2]
 PERF = REPO / "space" / "perf"
 RECO = Path("/data/zdc-autoresearch/reco")
-OUT = Path(__file__).resolve().parent / "plots"
-OUT.mkdir(exist_ok=True)
+OUT = REPO / "space" / "plots" / "phase5"     # work-common: plots live in {space}/plots/phase{#}/
+OUT.mkdir(parents=True, exist_ok=True)
 BLUE, ORANGE, AQUA = "#2a78d6", "#eb6834", "#1baf7a"
 INK, MUTED, GRID, SURFACE = "#0b0b0b", "#52514e", "#dddcd8", "#ffffff"
 REACH = {"9x275": 43.6, "9x130": 8.0}

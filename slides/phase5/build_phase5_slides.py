@@ -366,7 +366,7 @@ def s99_checkpoint2(prs):
 
 D4_ROW = {"Y1": "D4P5_Y1", "Y2": "D4P5_Y2", "Y4": "D4P5_Y4", "Y5": "D4P5_Y5", "Y6": "CP5_1_Y6_D4", "Y7": "D4P5_Y7",
           "Y8": "D4P5_Y8", "Y9": "CP5_2_Y9_D4", "Y10": "D4P5_Y10"}
-PLOTS = os.path.join(HERE, "plots")
+PLOTS = os.path.join(HERE, "..", "..", "space", "plots", "phase5")
 missing = []
 
 
@@ -477,7 +477,71 @@ def s204_compare(prs):
         PURPLE, PURPLE_FILL, size=Pt(11.5))
 
 
-SLIDES = [s01_title, s01b_waterfall, s01c_phase4_columns, s02_score, s03_regimes, try_slides, s99_checkpoint1,
+# ---- score per try as bars (the user's request at the Phase 6 close, D-user-45) ---------------------------------
+VERDICT_BAR = {"ACCEPTED": GREEN, "INCONCLUSIVE": ORANGE, "FOUL": ORANGE, "REJECTED": MUTED}
+N_EXP = 7160                                   # source: msf-regimes-*-D6s_*.json, N_expected per search half (210)
+REACH_POOLED = sum(REACH.values()) / 100 * N_EXP
+CEILING = 14.1                                 # source: Phase 4 deck, the D4 ceiling of the mean (perfect separation)
+
+
+def s01d_score_bars(prs):
+    """Score per try, as the Phase 4 deck's bar slide: N_found pooled over the search halves, colour = verdict."""
+    s = new_slide(prs); add_slide_number(prs, s, MUTED)
+    title(s, "Score per try — Λ → nπ⁰ found on the MSF search halves, 9x275 + 9x130")
+    first = load_json(f"msf-select-{TRIES[0]['row']}-vs-{TRIES[0]['best']}-D6s.json") or {}
+    r0 = [rows_of(TRIES[0]["best"], f"D6s_{b}") for b in ("9x275", "9x130")]
+    rows = []
+    if all(r0):
+        n = r0[0]["N_found"] + r0[1]["N_found"]
+        rows.append(("X9 (start)", n, GREY_BAR, f"{n}  ({100 * r0[0]['yield']:.1f} % · {100 * r0[1]['yield']:.2f} %)  "
+                     f"purity {100 * n / (r0[0]['N_window'] + r0[1]['N_window']):.1f} %"))
+    for t in TRIES:
+        sel = load_json(f"msf-select-{t['row']}-vs-{t['best']}-D6s.json")
+        if not sel:
+            rows.append((t["id"], None, MUTED, PENDING))
+            continue
+        fp = (load_json(f"fair-play-{t['row']}-msf.json") or {}).get("verdict")
+        verdict = "FOUL" if fp == "FAIL" else sel["verdict"]
+        b = sel["beams"]; n = sel["N_found"]["candidate"]
+        rows.append((t["id"], n, VERDICT_BAR.get(verdict, MUTED),
+                     f"{n}  ({100 * b['9x275']['candidate']['yield']:.1f} % · {100 * b['9x130']['candidate']['yield']:.2f} %)  "
+                     f"purity {100 * sel['purity']['candidate']:.1f} %" + ("  (no effect)" if sel["z"] == 0 else "")))
+    hbars(s, rows, 0.55, 1.6, 10.4, 0.45, REACH_POOLED, INK, MUTED, label_w=1.6, size=Pt(12), text_w=4.2,
+          mark=(REACH_POOLED, f"reachable {REACH_POOLED:.0f}"))
+    box, tf = txbox(s, 0.55, 6.2, 12.23, 0.5)
+    set_run(tf.paragraphs[0].add_run(), "Bar: found Λ pooled over the search halves (463). Text: found (yield 9x275 · 9x130), purity in "
+            "the ±30 MeV window. Colour = verdict: green accepted, orange inconclusive, grey rejected. Rule: the reachable yield, pooled.",
+            Pt(10.5), MUTED, italic=True)
+    if len(rows) > 1 and rows[0][1]:
+        best = max(r[1] for r in rows if r[1] is not None and r[2] == GREEN)
+        takeaway(s, f"X9 {rows[0][1]} → Y9 {best} found (+{100 * (best - rows[0][1]) / rows[0][1]:.0f} %): "
+                    f"{100 * best / REACH_POOLED:.0f} % of the reachable yield.")
+
+
+def s01e_d4_bars(prs):
+    """Phase 4's own chart continued over the Phase 5 tries: S4a_tm per thrown on the D4 gun."""
+    s = new_slide(prs); add_slide_number(prs, s, MUTED)
+    title(s, "D4 gun score per try — S4a_tm per thrown Λ → nπ⁰, mean over 100–275 GeV")
+    rows = []
+    for lab, row in (("R1 (Phase 4 start)", "R1_pr3064"), ("X9 (Phase 4 end)", "X9_pairing_photon_depth")):
+        r = headline_row(row) or {}
+        v, v275 = r.get("S4a_tm_per_thrown_mean"), r.get("S4a_tm_per_thrown_275")
+        rows.append((lab, float(v) if v else None, GREY_BAR, f"{float(v):.2f} %  (275 GeV: {float(v275):.2f} %)" if v else PENDING))
+    for t in TRIES:
+        sel = load_json(f"msf-select-{t['row']}-vs-{t['best']}-D6s.json") or {}
+        r = headline_row(D4_ROW[t["id"]]) or {}
+        v, v275 = r.get("S4a_tm_per_thrown_mean"), r.get("S4a_tm_per_thrown_275")
+        rows.append((t["id"], float(v) if v else None, VERDICT_BAR.get(sel.get("verdict"), MUTED),
+                     f"{float(v):.2f} %  (275 GeV: {float(v275):.2f} %)" if v else "not reconstructed on D4"))
+    hbars(s, rows, 0.55, 1.6, 7.6, 0.4, CEILING, INK, MUTED, label_w=2.3, size=Pt(11.5), text_w=3.0,
+          mark=(CEILING, f"ceiling {CEILING} %"))
+    box, tf = txbox(s, 0.55, 6.5, 12.23, 0.3)
+    set_run(tf.paragraphs[0].add_run(), "headline.csv (441); D4 reconstructed for every Phase 5 try at the close (D4P5_*, CP5_*). "
+            "Reported, never selected on.", Pt(10.5), MUTED, italic=True)
+    takeaway(s, "Phase 5 leaves the gun where Phase 4 left it: its gains are in the B0 regimes the gun barely reaches.", y=6.85)
+
+
+SLIDES = [s01_title, s01d_score_bars, s01e_d4_bars, s01b_waterfall, s01c_phase4_columns, s02_score, s03_regimes, try_slides, s99_checkpoint1,
           s99_checkpoint2, s200_msf_steps, s201_d4_steps, s202_regimes, s203_mass, s204_compare]
 
 

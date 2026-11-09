@@ -46,6 +46,8 @@ e473, r210, STOCK, Z_ZDC, Z_CRYS = s477.e473, s477.r210, s477.STOCK, s477.Z_ZDC,
 C, A, EH, HH = s477.C, s477.A, s477.EH, s477.HH
 np_ = s477.np_
 
+GUN_BRANCHES = ([f"{C}.energy", f"{C}.position.x", f"{C}.position.y", f"{C}.position.z", f"{C}.shapeParameters_begin",
+                 f"_{C}_shapeParameters"] + [f"{EH}.{q}" for q in ("energy", "position.x", "position.y", "position.z")])
 FEATURES = ["e_front30", "e_front60", "front_frac", "depth", "l1", "l2", "l3", "log_e", "d_lead", "e_rel_lead"]
 
 
@@ -153,7 +155,7 @@ def guns(args):
                 gev = float(path.name.split("_")[-2].replace("GeV", ""))
                 if kind == "photon" and gev > args.fit_max_gev:
                     continue
-                R = uproot.open(path)["events"].arrays(s477.reco_branches(), library="ak")
+                R = uproot.open(path)["events"].arrays(GUN_BRANCHES, library="ak")
                 for ev in range(len(R)):
                     cand, feats = cluster_features(R, ev)
                     if not cand:

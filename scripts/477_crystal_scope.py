@@ -313,8 +313,21 @@ def main():
     ap.add_argument("--sigma-l", type=float, help="chooser Λ-mass width for --full (launched 0.04 GeV)")
     ap.add_argument("--pi0-win", type=float, help="chooser π⁰-mass window, relative, for --full / --alt (launched 0.1)")
     ap.add_argument("--w-depth", type=float, help="chooser decay-depth weight for --full (launched 1.5)")
-    ap.add_argument("--why", action="store_true", help="with --alt: why the all-ZDC Λ with a pure crystal cluster are missed")
+    ap.add_argument("--why", action="store_true", help="with --alt: why the all-ZDC Λ with a pure crystal cluster are missed "
+                    "(under the first --iso setting when given)")
+    ap.add_argument("--why-all", action="store_true", help="with --alt: what the chooser picks for every missed all-ZDC Λ whose "
+                    "photons both have a pure candidate (under the first --iso setting when given)")
+    ap.add_argument("--no-crystal-alt", action="store_true", help="with --alt: drop the crystal law's energy as an option for "
+                    "tagged Hcal photons (Z5), keeping --axis-law's")
+    ap.add_argument("--axis-law", type=float, help="with --alt: tagged Hcal photons also offer the axis law's energy at this "
+                    "radius (mm; calib-hcal-axis-CAL6_D2_Y9.json, form ch, written by 481)")
     ap.add_argument("--alt-col-out", action="store_true", help="with --alt: a crystal-law Hcal photon's column beyond its own cluster leaves the neutron")
+    ap.add_argument("--iso", nargs="*", default=[], type=lambda v: tuple(float(q) for q in v.split(":")),
+                    help="with --alt / --full: isolation terms W:L (mm) to scan, w·exp(−d_lead / l) per Hcal photon")
+    ap.add_argument("--front", nargs="*", default=[], type=lambda v: tuple(float(q) for q in v.split(":")),
+                    help="with --alt: crystal-front terms W:E0 (GeV) to scan on top of the first --iso setting, w·exp(−E_front30 / e0) "
+                    "per tagged Hcal photon")
+    ap.add_argument("--iso-crys", action="store_true", help="--iso also on crystal photons (their projected position)")
     ap.add_argument("--alt", action="store_true", help="as --full, with a tagged Hcal photon's crystal-law energy as a competing hypothesis")
     ap.add_argument("--z3", action="store_true", help="also emulate Z3: tagged Hcal photons with a crystal cluster in front take the crystal law's energy")
     ap.add_argument("--veto", nargs="*", default=["single", "split"], choices=["single", "split"], help="crystal veto variants to scan")
@@ -338,7 +351,11 @@ def main():
         if h[0] == "ZDC" and sorted(h[1:]) in (["ZDC", "ZDC"], ["B0", "ZDC"], ["B0", "B0"]):
             per[(l["file"], l["event"])] = l
     law = json.loads(Path(args.law).read_text()) if args.law else None
-    inv = Counter(); inv_e = defaultdict(list); res = Counter(); e_ratio = defaultdict(list)
+    axis = None
+    if args.axis_law:
+        aj = json.loads(repo_path("space", "perf", "calib-hcal-axis-CAL6_D2_Y9.json").read_text())[f"{args.axis_law:g}-ch"]["coef"]
+        axis = {"r": args.axis_law, "a": aj[0], "b": aj[1], "c": aj[2]}
+    inv = Counter(); inv_e = defaultdict(list); res = Counter(); e_ratio = defaultdict(list); why_dm = []; why_e = defaultdict(list)
     files = sorted({k[0] for k in per})[: args.files]
     for fname in files:
         sim = uproot.open(f"/data/zdc-autoresearch/datasets/{args.dataset}/{fname}")["events"]
@@ -540,7 +557,46 @@ def main():
                     extra = max(0.0, args.col_scale * f["col"] - E[c])
                     if args.alt_col_out and extra > 0:
                         alt_out[c] = [{"col": extra / args.col_scale, "x": f["x"]}]
+            # --axis-law: every tagged Hcal photon also offers the axis law's energy (481: crystal and Hcal rec hits within R of
+            # its own projective line, fitted on the photon guns); with --alt-col-out its column beyond its cluster leaves the neutron
+            ax_opt = {}
+            if axis is not None:
+                for c in cand:
+                    tx, ty = P[c][0] / P[c][2], P[c][1] / P[c][2]
+                    ecr = float(ce[np.hypot(cp[:, 0] - tx * cp[:, 2], cp[:, 1] - ty * cp[:, 2]) <= axis["r"]].sum()) if len(ce) else 0.0
+                    ecl = float(he[np.hypot(hp[:, 0] - tx * hp[:, 2], hp[:, 1] - ty * hp[:, 2]) <= axis["r"]].sum()) if len(he) else 0.0
+                    e_ax = axis["a"] * ecr + axis["b"] * ecl + axis["c"]
+                    if e_ax <= 0:
+                        continue
+                    extra = max(0.0, args.col_scale * ecl - E[c])
+                    out_cols = [{"col": extra / args.col_scale, "x": np.array([tx * Z_CRYS, ty * Z_CRYS, Z_CRYS])}] if (args.alt_col_out and extra > 0) else []
+                    ax_opt[c] = (e_ax, out_cols)
             b0e = [e475.B0_LAW[0] * Eb[kb] ** e475.B0_LAW[1] for kb in range(len(Eb))]
+            lead = int(np.argmax(E)) if len(E) else -1
+            # --front: the crystal rec-hit energy within 30 mm in front of each tagged Hcal photon (its projective line)
+            e_front = {}
+            for c in cand:
+                tx, ty = P[c][0] / P[c][2], P[c][1] / P[c][2]
+                e_front[c] = float(ce[np.hypot(cp[:, 0] - tx * cp[:, 2], cp[:, 1] - ty * cp[:, 2]) <= 30.0].sum()) if len(ce) else 0.0
+
+            def front_term(t, w, e0):
+                """--front: w·exp(−E_front / e0) per tagged Hcal photon of hypothesis t (no crystal energy in front: fragment-like)."""
+                kind, val = t[1], t[2]
+                hc = {"zpair": (val[0], val[1]), "mixed": (val[0],), "crys+hcal": (val[1],)}.get(kind, ())
+                return sum(w * math.exp(-e_front[i] / e0) for i in hc)
+
+            def iso_term(t, xc, w, lscale):
+                """--iso: w·exp(−d / l) per Hcal photon of hypothesis t (and per crystal photon with --iso-crys)."""
+                kind, val = t[1], t[2]
+                if lead < 0:     # no Hcal cluster: no neutron core to be close to
+                    return 0.0
+                hc = {"zpair": (val[0], val[1]), "mixed": (val[0],), "crys+hcal": (val[1],)}.get(kind, ())
+                cr = {"crys+hcal": (val[0],), "crys+crys": (val[0], val[1]), "crys+b0": (val[0],)}.get(kind, ()) if args.iso_crys else ()
+                tot = sum(w * math.exp(-math.hypot(P[i][0] - P[lead][0], P[i][1] - P[lead][1]) / lscale) for i in hc)
+                for k in cr:
+                    x = xc[k]["x"]; f = P[lead][2] / Z_CRYS
+                    tot += w * math.exp(-math.hypot(x[0] * f - P[lead][0], x[1] * f - P[lead][1]) / lscale)
+                return tot
             rinwin = rkind is not None and abs(rval[2] - M_L) < 0.03
             # --full: the crystal decision with every hypothesis rescored under the chooser weights of --sigma-l / --w-depth
             # (the row's reference decision keeps the launched weights), every Λ graded against the emulated row
@@ -553,7 +609,8 @@ def main():
                     xc = xcs[veto] if mode != "recomputed" else []
                     hyps = []
                     # energy options per tagged cluster: (energy, columns that leave the neutron with it)
-                    egv = {c: ([(eg[c], [])] + ([(eg_z3[c], alt_out.get(c, []))] if mode == "alt" and eg_z3[c] != eg[c] else [])) for c in cand}
+                    egv = {c: ([(eg[c], [])] + ([(eg_z3[c], alt_out.get(c, []))] if mode == "alt" and eg_z3[c] != eg[c] and not args.no_crystal_alt else [])
+                               + ([ax_opt[c]] if mode == "alt" and c in ax_opt else [])) for c in cand}
                     for ia in range(len(cand)):
                         for ib in range(ia + 1, len(cand)):
                             i, j = cand[ia], cand[ib]
@@ -561,7 +618,7 @@ def main():
                                 for e2, o2 in egv[j]:
                                     En, cen = neutron([i, j], o1 + o2)
                                     s, ml = score_zdc_pair((e1, P[i]), (e2, P[j]), En, cen, (P[i][2] + P[j][2] - 2 * Z_ZDC) / 100.0, ps)
-                                    hyps.append((s, "zpair", (i, j, ml, En + e1 + e2)))
+                                    hyps.append((s, "zpair", (i, j, ml, En + e1 + e2, e1, e2, En)))
                         for kb in range(len(Eb)):
                             for e1, o1 in egv[cand[ia]]:
                                 En, cen = neutron([cand[ia]], o1)
@@ -575,78 +632,157 @@ def main():
                             for e1, o1 in egv[i]:
                                 En, cen = neutron([i], [c] + o1)
                                 s, ml = score_zdc_pair((e1, P[i]), (c["E"], c["x"]), En, cen, (P[i][2] - Z_ZDC) / 100.0 + pd, ps)
-                                hyps.append((s, "crys+hcal", (ci_, i, ml, En + e1 + c["E"])))
+                                hyps.append((s, "crys+hcal", (ci_, i, ml, En + e1 + c["E"], c["E"], e1, En)))
                         for cj_ in range(ci_ + 1, len(xc)):
                             d = xc[cj_]
                             En, cen = neutron([], [c, d])
                             s, ml = score_zdc_pair((c["E"], c["x"]), (d["E"], d["x"]), En, cen, 2 * pd, ps)
-                            hyps.append((s, "crys+crys", (ci_, cj_, ml)))
+                            hyps.append((s, "crys+crys", (ci_, cj_, ml, En + c["E"] + d["E"], c["E"], d["E"], En)))
                         for kb in range(len(Eb)):
                             En, cen = neutron([], [c])
                             s, ml = score_mixed((c["E"], c["x"]), (b0e[kb], Pb[kb]), En, cen, MIXED_PD * pd, ps)
                             hyps.append((s, "crys+b0", (ci_, kb, ml)))
-                    # the chooser runs as the row's (runs) or whenever crystal candidates exist; otherwise the fallbacks
-                    if runs or xc:
-                        pick = min(hyps, key=lambda t: t[0]) if hyps else None
-                    elif len(cand) == 2:
-                        pick = next((h for h in hyps if h[1] == "zpair"), None)
-                    elif len(cand) == 1:
-                        pick = min((h for h in hyps if h[1] == "mixed"), key=lambda t: t[0], default=None)
-                    else:
-                        pick = None
-                    good, inwin = False, False
-                    if pick is not None:
-                        _, kind, val = pick
-                        inwin = abs(val[2] - M_L) < 0.03
-                        rz = 1 if l["homes"][1] == "ZDC" else 2
-                        if kind == "zpair" and regime == "all-ZDC":
-                            good = inwin and ((val[0] in pz[1] and val[1] in pz[2]) or (val[0] in pz[2] and val[1] in pz[1]))
-                        elif kind == "mixed" and regime == "B0+ZDC":
-                            good = inwin and val[0] in pz[rz] and val[1] in pb[3 - rz]
-                        elif kind == "b0pair" and regime == "B0+B0":
-                            good = inwin and ((val[0] in pb[1] and val[1] in pb[2]) or (val[0] in pb[2] and val[1] in pb[1]))
-                        elif kind == "crys+hcal" and regime == "all-ZDC":
-                            c, i = xc[val[0]], val[1]
-                            good = inwin and ((c["pur"][1] >= 0.8 and i in pz[2]) or (c["pur"][2] >= 0.8 and i in pz[1]))
-                        elif kind == "crys+crys" and regime == "all-ZDC":
-                            c, d = xc[val[0]], xc[val[1]]
-                            good = inwin and ((c["pur"][1] >= 0.8 and d["pur"][2] >= 0.8) or (c["pur"][2] >= 0.8 and d["pur"][1] >= 0.8))
-                        elif kind == "crys+b0" and regime == "B0+ZDC":
-                            good = inwin and xc[val[0]]["pur"][rz] >= 0.8 and val[1] in pb[3 - rz]
-                    name = mode if mode == "recomputed" else f"{mode} veto {veto} crys_pd {pd:+.0f}"
-                    res[f"{regime}: {name} good"] += good
-                    # --why: an all-ZDC Λ the alt decision misses although a photon has a pure crystal cluster ≥ CRYS_MIN
-                    if args.why and mode == "alt" and regime == "all-ZDC" and not good:
-                        for r in (1, 2):
-                            pure_cand = [k for k, c in enumerate(xc) if c["pur"][r] >= 0.8]
-                            pure_veto = [x for x in xc_all if x["pur"][r] >= 0.8 and x not in xc]
-                            if not (pure_cand or pure_veto):
-                                continue
-                            other = 3 - r
-                            other_ok = bool(pz[other]) or any(c["pur"][other] >= 0.8 for c in xc_all)
-                            if pure_cand:
-                                if pick is None:
-                                    why = "candidate, no pick"
-                                elif pick[1].startswith("crys") and any(pick[2][q] in pure_cand for q in ((0, 1) if pick[1] == "crys+crys" else (0,))):
-                                    why = "candidate picked, " + ("out of window" if not inwin else "other photon wrong")
+                    # --iso: an isolation term w·exp(−d / l) per Hcal photon (d: transverse distance to the most energetic Hcal
+                    # cluster, the neutron core) and, with --iso-crys, per crystal photon; (0, 1) is the launched chooser
+                    iso0 = tuple(args.iso[0]) if args.iso else (0.0, 1.0)
+                    settings = [(0.0, 1.0, 0.0, 1.0)] + ([(w_, l_, 0.0, 1.0) for w_, l_ in args.iso] if mode in ("alt", "full") else []) \
+                        + ([(iso0[0], iso0[1], fw, fe) for fw, fe in args.front] if mode in ("alt", "full") else [])
+                    for iso_w, iso_l, fr_w, fr_e in settings:
+                        def key(t, iso_w=iso_w, iso_l=iso_l, fr_w=fr_w, fr_e=fr_e):
+                            return (t[0] + (iso_term(t, xc, iso_w, iso_l) if iso_w else 0.0)
+                                    + (front_term(t, fr_w, fr_e) if fr_w else 0.0))
+                        # the chooser runs as the row's (runs) or whenever crystal candidates exist; otherwise the fallbacks
+                        if runs or xc:
+                            pick = min(hyps, key=key) if hyps else None
+                        elif len(cand) == 2:
+                            pick = next((h for h in hyps if h[1] == "zpair"), None)
+                        elif len(cand) == 1:
+                            pick = min((h for h in hyps if h[1] == "mixed"), key=key, default=None)
+                        else:
+                            pick = None
+                        good, inwin = False, False
+                        if pick is not None:
+                            _, kind, val = pick
+                            inwin = abs(val[2] - M_L) < 0.03
+                            rz = 1 if l["homes"][1] == "ZDC" else 2
+                            if kind == "zpair" and regime == "all-ZDC":
+                                good = inwin and ((val[0] in pz[1] and val[1] in pz[2]) or (val[0] in pz[2] and val[1] in pz[1]))
+                            elif kind == "mixed" and regime == "B0+ZDC":
+                                good = inwin and val[0] in pz[rz] and val[1] in pb[3 - rz]
+                            elif kind == "b0pair" and regime == "B0+B0":
+                                good = inwin and ((val[0] in pb[1] and val[1] in pb[2]) or (val[0] in pb[2] and val[1] in pb[1]))
+                            elif kind == "crys+hcal" and regime == "all-ZDC":
+                                c, i = xc[val[0]], val[1]
+                                good = inwin and ((c["pur"][1] >= 0.8 and i in pz[2]) or (c["pur"][2] >= 0.8 and i in pz[1]))
+                            elif kind == "crys+crys" and regime == "all-ZDC":
+                                c, d = xc[val[0]], xc[val[1]]
+                                good = inwin and ((c["pur"][1] >= 0.8 and d["pur"][2] >= 0.8) or (c["pur"][2] >= 0.8 and d["pur"][1] >= 0.8))
+                            elif kind == "crys+b0" and regime == "B0+ZDC":
+                                good = inwin and xc[val[0]]["pur"][rz] >= 0.8 and val[1] in pb[3 - rz]
+                        name = ((mode if mode == "recomputed" else f"{mode} veto {veto} crys_pd {pd:+.0f}") + (f" iso {iso_w:g}/{iso_l:g}" if iso_w else "")
+                                + (f" front {fr_w:g}/{fr_e:g}" if fr_w else ""))
+                        res[f"{regime}: {name} good"] += good
+                        # --why: an all-ZDC Λ the alt decision misses although a photon has a pure crystal cluster ≥ CRYS_MIN
+                        if args.why and mode == "alt" and not fr_w and (iso_w, iso_l) == iso0 and regime == "all-ZDC" and not good:
+                            for r in (1, 2):
+                                pure_cand = [k for k, c in enumerate(xc) if c["pur"][r] >= 0.8]
+                                pure_veto = [x for x in xc_all if x["pur"][r] >= 0.8 and x not in xc]
+                                if not (pure_cand or pure_veto):
+                                    continue
+                                other = 3 - r
+                                other_ok = bool(pz[other]) or any(c["pur"][other] >= 0.8 for c in xc_all)
+                                if pure_cand:
+                                    if pick is None:
+                                        why = "candidate, no pick"
+                                    elif pick[1].startswith("crys") and any(pick[2][q] in pure_cand for q in ((0, 1) if pick[1] == "crys+crys" else (0,))):
+                                        why = "candidate picked, " + ("out of window" if not inwin else "other photon wrong")
+                                    else:
+                                        why = f"candidate, {pick[1]} won"
                                 else:
-                                    why = f"candidate, {pick[1]} won"
+                                    behind = {c for x in pure_veto for c in x["behind"]}
+                                    why = "vetoed, Hcal cluster behind " + ("pure" if behind & pz[r] else "impure")
+                                    if pick is not None and pick[1] in ("zpair", "mixed", "crys+hcal") and (set(pick[2][:2]) & behind):
+                                        why += ", picked" + (" out of window" if not inwin else "")
+                                res[f"why: {why}" + ("" if other_ok else " (other photon without a pure candidate)")] += 1
+                                break
+                        # --why-all: every all-ZDC Λ the decision misses although both photons have a pure candidate
+                        # (tagged Hcal or crystal): what the chooser picked instead
+                        if (args.why_all and mode == "alt" and regime == "all-ZDC" and not good and not fr_w
+                                and (iso_w, iso_l) == iso0
+                                and all(pz[r] or any(c["pur"][r] >= 0.8 for c in xc) for r in (1, 2))):
+                            def who(m, is_crys):
+                                if is_crys:
+                                    c = xc[m]
+                                    return next((r for r in (1, 2) if c["pur"][r] >= 0.8), 0), "crystal"
+                                r = next((r for r in (1, 2) if m in pz[r]), 0)
+                                if r:
+                                    return r, "hcal"
+                                wn = w[(rc == m) & (own == base)].sum()
+                                return 0, "hcal neutron fragment" if wn >= 0.5 else "hcal other"
+                            if pick is None:
+                                cat = "no pick"
+                            elif pick[1] in ("mixed", "b0pair", "crys+b0"):
+                                cat = f"a B0 hypothesis ({pick[1]}) won"
                             else:
-                                behind = {c for x in pure_veto for c in x["behind"]}
-                                why = "vetoed, Hcal cluster behind " + ("pure" if behind & pz[r] else "impure")
-                                if pick is not None and pick[1] in ("zpair", "mixed", "crys+hcal") and (set(pick[2][:2]) & behind):
-                                    why += ", picked" + (" out of window" if not inwin else "")
-                            res[f"why: {why}" + ("" if other_ok else " (other photon without a pure candidate)")] += 1
-                            break
-                    if good and pick is not None and len(pick[2]) > 3:
-                        e_ratio[name].append(pick[2][3] / math.sqrt(l["p"] ** 2 + M_L ** 2))
-                    if regime == "B0+B0":     # the row finds these through LambdaReconstruction too: count switches only
-                        kind_new = pick[1] if pick is not None else None
-                        if kind_new != rkind:
-                            res[f"{regime}: {name} net"] += int(good) - int(found)
-                    else:
-                        res[f"{regime}: {name} net"] += int(good) - int(rgood)
-                    res[f"{regime}: {name} window change"] += int(inwin) - int(rinwin)
+                                k, v = pick[1], pick[2]
+                                mem = {"zpair": [(v[0], False), (v[1], False)], "crys+hcal": [(v[0], True), (v[1], False)],
+                                       "crys+crys": [(v[0], True), (v[1], True)]}[k]
+                                ids = [who(m, c) for m, c in mem]
+                                right = [t for t in ids if t[0]]
+                                if len(right) == 2 and right[0][0] != right[1][0]:
+                                    dm = v[2] - M_L
+                                    cat = "right pair, mass " + ("high" if dm > 0 else "low")
+                                    why_dm.append(dm)
+                                    if len(v) >= 7:     # energies / true: the members' photons in order, the neutron
+                                        why_e["photon"] += [v[4] / l["E"][ids[0][0]], v[5] / l["E"][ids[1][0]]]
+                                        for q, (m, isc) in enumerate(mem):
+                                            typ = "crystal" if isc else ("hcal, crystal-law energy" if (k == "zpair" and abs(v[4 + q] - eg_hcal.get(m, -1)) > 1e-9) or (k == "crys+hcal" and abs(v[5] - eg_hcal.get(m, -1)) > 1e-9) else "hcal, Hcal-law energy")
+                                            why_e[f"photon ({typ})"].append(v[4 + q] / l["E"][ids[q][0]])
+                                        why_e["neutron"].append(v[6] / l["E"][0])
+                                        why_e["kind " + k].append(1.0)
+                                elif len(right) == 2:
+                                    cat = "both pure for the same photon"
+                                elif len(right) == 1:
+                                    cat = "one right, other: " + next(t[1] for t in ids if not t[0])
+                                else:
+                                    cat = "both wrong: " + " + ".join(sorted(t[1] for t in ids))
+                            res[f"why-all: {cat}"] += 1
+                        # --why-all, B0 + ZDC: the misses whose ZDC photon has a pure candidate (tagged Hcal or crystal) and whose
+                        # B0 photon a pure B0 cluster
+                        if (args.why_all and mode == "alt" and regime == "B0+ZDC" and not good and not fr_w
+                                and (iso_w, iso_l) == iso0):
+                            rzz = 1 if l["homes"][1] == "ZDC" else 2
+                            zok = bool(pz[rzz]) or any(c["pur"][rzz] >= 0.8 for c in xc)
+                            bok = bool(pb[3 - rzz])
+                            if zok and bok:
+                                if pick is None:
+                                    cat = "no pick"
+                                elif pick[1] in ("zpair", "crys+hcal", "crys+crys"):
+                                    cat = f"a ZDC pair ({pick[1]}) won"
+                                elif pick[1] == "b0pair":
+                                    cat = "a B0 pair won"
+                                else:
+                                    v = pick[2]
+                                    zright = (v[0] in pz[rzz]) if pick[1] == "mixed" else (xc[v[0]]["pur"][rzz] >= 0.8)
+                                    bright = v[1] in pb[3 - rzz]
+                                    if zright and bright:
+                                        cat = "right pair, mass " + ("high" if v[2] > M_L else "low")
+                                    elif bright:
+                                        cat = f"B0 right, ZDC photon wrong ({'Hcal' if pick[1] == 'mixed' else 'crystal'})"
+                                    elif zright:
+                                        cat = "ZDC right, B0 photon wrong"
+                                    else:
+                                        cat = "both wrong"
+                                res[f"why-all B0+ZDC: {cat}"] += 1
+                        if good and pick is not None and len(pick[2]) > 3:
+                            e_ratio[name].append(pick[2][3] / math.sqrt(l["p"] ** 2 + M_L ** 2))
+                        if regime == "B0+B0":     # the row finds these through LambdaReconstruction too: count switches only
+                            kind_new = pick[1] if pick is not None else None
+                            if kind_new != rkind:
+                                res[f"{regime}: {name} net"] += int(good) - int(found)
+                        else:
+                            res[f"{regime}: {name} net"] += int(good) - int(rgood)
+                        res[f"{regime}: {name} window change"] += int(inwin) - int(rinwin)
                     if mode == "recomputed":
                         break
     out = {"row": args.row, "json_row": jrow, "dataset": args.dataset, "files": len(files), "law": law,
@@ -660,6 +796,15 @@ def main():
         print(f"  {k:62s} 16/50/84 % {np.percentile(v, 16):.2f} / {np.median(v):.2f} / {np.percentile(v, 84):.2f}")
     for k in sorted(res):
         print(f"  {k:62s} {int(res[k]):5d}")
+    if why_dm:
+        print(f"  why-all right pairs out of the window: Δm 16/50/84 % {np.percentile(why_dm, 16):+.3f} / {np.median(why_dm):+.3f} / "
+              f"{np.percentile(why_dm, 84):+.3f} GeV")
+        out["why_all_dm_quantiles"] = [float(q) for q in np.percentile(why_dm, [16, 50, 84])]
+        for k, v in why_e.items():
+            q = np.percentile(v, [16, 50, 84]) if not k.startswith("kind") else [len(v)] * 3
+            print(f"  why-all right pairs out of the window, {k}: " + (f"E reco / true 16/50/84 % {q[0]:.3f} / {q[1]:.3f} / {q[2]:.3f} ({len(v)})"
+                                                                     if not k.startswith("kind") else f"{len(v)}"))
+            out[f"why_all_{k}"] = [float(x) for x in q]
     for k, v in e_ratio.items():
         print(f"  Λ energy / true of good picks, {k}: median {np.median(v):.3f}, σ68 {0.5 * (np.percentile(v, 84) - np.percentile(v, 16)):.3f} ({len(v)})")
     path = repo_path("space", "perf", f"crystal-scope-{args.row}-{args.dataset}{args.tag}.json")

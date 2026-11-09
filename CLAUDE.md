@@ -8,16 +8,26 @@ PR #3064 (`docs/zdc-problem.md`).
 ## Start line
 
 One chat line starts a run: `Read zdc-setup.md, work-common.md and
-zdc-autoresearch-loop-v6.md. Run.` (v2 holds the finished Phases 0 and 1;
+zdc-autoresearch-loop-v7.md. Run.` (v2 holds the finished Phases 0 and 1;
 v3 the Phase 2 close-out and Phase 3, halted 2026-11-07; v4 Phase 4, the Λ
 bar fight, closed 2026-11-08; v5 Phase 5, Λ → nπ⁰ on MSF events, closed
 2026-11-09, D-user-41; v6 Phase 6, the crystal-seeded ZDC photon finder,
-prepared, starts on that line.) Add `online` if you will answer in chat
-during the run; add `please-git` if commits are allowed this run.
+closed 2026-11-09, D-user-45; v7 Phase 7, the changes as EICrecon pull
+requests, prepared, starts on that line.) Add `online` if you will answer in
+chat during the run; add `please-git` if commits are allowed this run; add
+`one unit` to stop after each pull-request unit for review.
 
 ## Three hard rules
 
-**Phase 6 (loop v6, prepared) keeps Phase 5's ruler and adds the crystal
+**Phase 7 (loop v7, prepared, D-user-45) finds no new Λ: it splits the
+Phase 6 code into pull-request units and brings rules 1 and 3 back per unit.
+Each unit declares the collections it may change; every other collection
+stays byte-identical on the DIS samples and the guns (130's compare, the
+capybara view of the undeclared collections prints nothing), the declared
+ones are shown on the detector benchmarks, and the full series reproduces
+Z8. The user opens every pull request; the agent never pushes.**
+
+**Phase 6 (loop v6, closed) kept Phase 5's ruler and added the crystal
 section's raw hits to F2 and a crystal F3 check. Phase 5 (loop v5, D-user-39,
 closed) kept Phase 4's suspension and fair play
 below; its one selector is N_found, the truth-matched Λ → nπ⁰ on the MSF

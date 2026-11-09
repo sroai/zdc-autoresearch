@@ -1,0 +1,1392 @@
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+index 09d51678..160f6944 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+@@ -2,6 +2,7 @@
+ // Copyright (C) 2026 Sebouh Paul, Baptiste Fraisse
+ 
+ #include <Evaluator/DD4hepUnits.h>
++#include <edm4eic/CalorimeterHit.h>
+ #include <edm4eic/ClusterCollection.h>
+ #include <edm4eic/ReconstructedParticleCollection.h>
+ #include <edm4hep/Vector3f.h>
+@@ -11,8 +12,12 @@
+ #include <algorithm>
+ #include <array>
+ #include <cmath>
++#include <cstdint>
++#include <initializer_list>
+ #include <limits>
++#include <map>
+ #include <utility>
++#include <set>
+ #include <stdexcept>
+ #include <tuple>
+ #include <vector>
+@@ -80,7 +85,9 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+     const std::vector<double>& gammaScaleCoeff, const std::vector<double>& neutronScaleCoeff,
+     bool canDetectGammas, bool canDetectNeutrons, const CorrFunc& gammaCorr,
+     const CorrFunc& neutronCorr, GammaMode gammaMode, double gammaLeaderFracMin, double clusterEmin,
+-    NeutronMode neutronMode, bool associateAllClustersToNeutron, bool lambdaPairing) const {
++    NeutronMode neutronMode, bool associateAllClustersToNeutron, bool lambdaPairing,
++    const std::vector<ExternalPhoton>* external, const edm4eic::ClusterCollection* crystalClusters,
++    const edm4eic::CalorimeterHitCollection* hcalHits, const edm4eic::CalorimeterHitCollection* crystalHits) const {
+ 
+   (void)gammaLeaderFracMin;
+ 
+@@ -111,6 +118,7 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+     rec.setCharge(0);
+     rec.setMass(0);
+     rec.addToClusters(cl);
++    return rec;
+   };
+ 
+   // Use ObjectIDs rather than raw pointers to avoid dangling references to
+@@ -118,6 +126,10 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+   std::vector<podio::ObjectID> gamma_used;
+   gamma_used.reserve(clusters->size());
+ 
++  // the Hcal columns behind the crystal photons written (their energy leaves the neutron) and their centroid sums
++  double column_energy = 0.0;
++  std::array<double, 3> column_moment{0.0, 0.0, 0.0};
++
+   // gammaMode == LeaderOnly
+   if (gammaMode == GammaMode::LeaderOnly) {
+ 
+@@ -143,8 +155,7 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+         idx, [&](int a, int b) { return (*clusters)[a].getEnergy() > (*clusters)[b].getEnergy(); });
+ 
+     // Keep only the leading clusters in order to limit combinatorial
+-    const size_t Nkeep = 4;
+-    for (size_t k = 0; k < std::min(Nkeep, idx.size()); ++k) {
++    for (size_t k = 0; k < std::min(kLeadingGammas, idx.size()); ++k) {
+       const auto& cl = (*clusters)[idx[k]];
+       makeGamma(cl);
+       gamma_used.push_back(cl.getObjectID());
+@@ -162,17 +173,99 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+       }
+     }
+     // Lambda pairing: of the tagged clusters keep the pair that best fits Lambda -> n gamma gamma; the other
+-    // tagged clusters stay with the neutron. Without a fittable pair every tagged cluster stays a photon.
+-    if (lambdaPairing && canDetectNeutrons && cand.size() > 2) {
++    // tagged clusters stay with the neutron. Without a fittable pair every tagged cluster stays a photon. With
++    // external photons (B0 ECal) a hypothesis may use one tagged cluster only: then it alone is a photon here.
++    const bool with_external = (external != nullptr) && !external->empty();
++    // with two external photons their pair competes even with a single tagged cluster
++    const bool with_pair = m_cfg.lambdaPairingExternalPair && with_external && external->size() >= 2;
++    // crystal-seeded photon candidates: with any, the chooser always runs and the row hypotheses compete with them
++    std::vector<CrystalPhoton> crystals;
++    std::vector<AltEnergy> alts;
++    if (lambdaPairing && canDetectNeutrons && m_cfg.lambdaPairingCrystal && crystalClusters != nullptr) {
++      crystals = crystalCandidates(*crystalClusters, *clusters, cand, hcalHits, &alts, crystalHits);
++    }
++    std::vector<std::size_t> crystal_photons; // indices into crystals
++    std::map<std::size_t, std::pair<double, int>> alt_energy; // Hcal photon -> its crystal-law energy, crystal cluster
++    if (lambdaPairing && canDetectNeutrons &&
++        (!crystals.empty() || cand.size() > 2 || (with_external && cand.size() == 2) ||
++         (with_pair && cand.size() == 1))) {
++      double pair_score = std::numeric_limits<double>::infinity();
+       const auto [a, b] = chooseLambdaPhotonPair(*clusters, cand, gammaScaleCoeff, neutronScaleCoeff,
+-                                                 gammaCorr, neutronCorr, clusterEmin);
+-      if (a >= 0 && b >= 0) {
++                                                 gammaCorr, neutronCorr, clusterEmin, external, &pair_score);
++      CrystalChoice crystal_choice;
++      if (!crystals.empty() || !alts.empty()) {
++        crystal_choice = chooseCrystalHypothesis(*clusters, cand, crystals, alts, gammaScaleCoeff, neutronScaleCoeff,
++                                                 gammaCorr, neutronCorr, clusterEmin, external);
++      }
++      if (crystal_choice.score < pair_score) {
++        // a crystal photon or a crystal-law energy wins: its Hcal photons (with their energies), its crystal photons
++        cand.clear();
++        for (const auto& [h, e, c] : {std::tuple{crystal_choice.hcal, crystal_choice.e_hcal, crystal_choice.crys_hcal},
++                                      std::tuple{crystal_choice.hcal2, crystal_choice.e_hcal2, crystal_choice.crys_hcal2}}) {
++          if (h >= 0) {
++            cand.push_back(static_cast<std::size_t>(h));
++            if (e >= 0.0) {
++              alt_energy[static_cast<std::size_t>(h)] = {e, c};
++              // the column beyond the photon's own cluster leaves the neutron (crystalAltColumnOut)
++              for (const auto& a : alts) {
++                if (a.hcal == static_cast<std::size_t>(h) && a.energy == e && a.column_out > 0.0) {
++                  column_energy += a.column_out;
++                  column_moment[0] += a.column_out * a.column_position.x;
++                  column_moment[1] += a.column_out * a.column_position.y;
++                  column_moment[2] += a.column_out * a.column_position.z;
++                }
++              }
++            }
++          }
++        }
++        for (int k : {crystal_choice.a, crystal_choice.b}) {
++          if (k >= 0) {
++            crystal_photons.push_back(static_cast<std::size_t>(k));
++          }
++        }
++      } else if (a >= 0 && b >= 0) {
+         cand = {static_cast<std::size_t>(a), static_cast<std::size_t>(b)};
++      } else if (a >= 0 && b == kMixed) {
++        cand = {static_cast<std::size_t>(a)};
++      } else if (a == kExternalPair) {
++        cand.clear();
+       }
+     }
+     for (std::size_t i : cand) {
+-      makeGamma((*clusters)[i]);
++      auto rec = makeGamma((*clusters)[i]);
+       gamma_used.push_back((*clusters)[i].getObjectID());
++      if (const auto it = alt_energy.find(i); it != alt_energy.end()) {
++        // the crystal law's energy won: the photon carries it and links the crystal cluster after its Hcal cluster
++        const auto pos  = (*clusters)[i].getPosition();
++        const double r  = edm4hep::utils::magnitude(pos);
++        const double Ea = it->second.first;
++        if (r > 0) {
++          rec.setMomentum(pos * (Ea / r));
++        }
++        rec.setEnergy(Ea);
++        if (it->second.second >= 0) {
++          rec.addToClusters((*crystalClusters)[static_cast<std::size_t>(it->second.second)]);
++        }
++      }
++    }
++    for (std::size_t k : crystal_photons) {
++      const auto& cp = crystals[k];
++      auto rec       = out_neutrals->create();
++      rec.setPDG(22);
++      const double r = edm4hep::utils::magnitude(cp.position);
++      if (r > 0) {
++        rec.setMomentum(cp.position * (cp.energy / r));
++      }
++      rec.setEnergy(cp.energy);
++      rec.setReferencePoint(cp.position);
++      rec.setCharge(0);
++      rec.setMass(0);
++      rec.addToClusters((*crystalClusters)[cp.index]);
++      const double e_out = m_cfg.crystalColumnNeutronScale * cp.column_energy;
++      column_energy += e_out;
++      column_moment[0] += e_out * cp.column_position.x;
++      column_moment[1] += e_out * cp.column_position.y;
++      column_moment[2] += e_out * cp.column_position.z;
+     }
+   }
+ 
+@@ -231,15 +324,22 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+     if (E_sum <= 0.0 || kept.empty()) {
+       return 0;
+     }
++    // the Hcal columns of crystal photons carry photon energy: they leave the neutron
++    if (column_energy > 0.0) {
++      if (E_sum - column_energy <= 0.0) {
++        return 0;
++      }
++      E_sum -= column_energy;
++    }
+     En_raw = E_sum;
+     if (leaderN_idx >= clusters->size() || E_leader <= 0.0)
+       return 0;
+     n_pos = (*clusters)[leaderN_idx].getPosition();
+     if (m_cfg.neutronPositionCentroid) {
+       // the energy-weighted centroid of the summed clusters: a fragmented shower is better placed than by its leader
+-      double sx = 0.0;
+-      double sy = 0.0;
+-      double sz = 0.0;
++      double sx = -column_moment[0];
++      double sy = -column_moment[1];
++      double sz = -column_moment[2];
+       for (std::size_t idx : kept) {
+         const auto& cl  = (*clusters)[idx];
+         const double E  = cl.getEnergy();
+@@ -285,7 +385,8 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+     const edm4eic::ClusterCollection& clusters, const std::vector<std::size_t>& cand,
+     const std::vector<double>& gammaScaleCoeff, const std::vector<double>& neutronScaleCoeff,
+-    const CorrFunc& gammaCorr, const CorrFunc& neutronCorr, double clusterEmin) const {
++    const CorrFunc& gammaCorr, const CorrFunc& neutronCorr, double clusterEmin,
++    const std::vector<ExternalPhoton>* external, double* best_score_out) const {
+   const double m_n      = m_particleSvc.particle(2112).mass;
+   const double m_pi0    = m_particleSvc.particle(111).mass;
+   const double m_lambda = m_particleSvc.particle(3122).mass;
+@@ -401,13 +502,702 @@ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+       // the photons' depth in the ZDC (x1, x2 are proton-frame positions; a constant offset does not change the ranking)
+       const double photon_depth = (x1[2] + x2[2] - 2 * m_zZDC) / 100.0;
+       const double score        = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth +
+-                           m_cfg.lambdaPairingPhotonDepthWeight * photon_depth;
++                           m_cfg.lambdaPairingPhotonDepthWeight * photon_depth +
++                           isolationTerm(clusters, c1.getPosition(), false) +
++                           isolationTerm(clusters, c2.getPosition(), false);
+       if (score < best_score) {
+         best_score = score;
+         best       = {static_cast<int>(cand[ia]), static_cast<int>(cand[ib])};
+       }
+     }
+   }
++  // Mixed hypotheses: one tagged ZDC cluster with one external (B0 ECal) photon. The neutron is every other ZDC
++  // cluster above clusterEmin. The impact points lie at different depths (B0 ~7 m, ZDC ~36 m), so the slope of the
++  // Lambda line for a vertex at depth z is sum(w_i x_i,perp) / (P + z sum(w_i)), w_i = p_i / (z_i - z) (small angles),
++  // recomputed at each bisection step, and the depth stays short of the nearest impact point. The photon-depth term
++  // counts the single ZDC photon lambdaPairingMixedPhotonDepthFactor times (the pair term sums two photons).
++  if (external != nullptr && !external->empty()) {
++    for (std::size_t ia = 0; ia < cand.size(); ++ia) {
++      const auto& c1  = clusters[cand[ia]];
++      const double E1 = gammaCorr(c1.getEnergy(), gammaScaleCoeff);
++      if (E1 <= 0.0) {
++        continue;
++      }
++      double raw   = 0.0;
++      double Elead = -1.0;
++      int lead     = -1;
++      double cx    = 0.0;
++      double cy    = 0.0;
++      double cz    = 0.0;
++      for (std::size_t k = 0; k < clusters.size(); ++k) {
++        if (k == cand[ia]) {
++          continue;
++        }
++        const double E = clusters[k].getEnergy();
++        if (E < clusterEmin) {
++          continue;
++        }
++        raw += E;
++        const auto& pk = clusters[k].getPosition();
++        cx += E * pk.x;
++        cy += E * pk.y;
++        cz += E * pk.z;
++        if (E > Elead) {
++          Elead = E;
++          lead  = static_cast<int>(k);
++        }
++      }
++      if (lead < 0 || raw <= 0.0) {
++        continue;
++      }
++      const double En = neutronCorr(raw, neutronScaleCoeff);
++      if (En <= m_n) {
++        continue;
++      }
++      const double pn = std::sqrt(En * En - m_n * m_n);
++      const V3 xn     = m_cfg.neutronPositionCentroid
++                            ? toProton(edm4hep::Vector3f{static_cast<float>(cx / raw), static_cast<float>(cy / raw),
++                                                         static_cast<float>(cz / raw)})
++                            : toProton(clusters[lead].getPosition());
++      const V3 x1 = toProton(c1.getPosition());
++      for (const auto& ext : *external) {
++        const double E2 = ext.energy;
++        if (E2 <= 0.0) {
++          continue;
++        }
++        const V3 x2            = toProton(ext.position);
++        const double z_first   = std::min({xn[2], x1[2], x2[2]});
++        if (z_first <= 0.0) {
++          continue;
++        }
++        const std::array<std::pair<double, const V3*>, 3> impacts{{{pn, &xn}, {E1, &x1}, {E2, &x2}}};
++        const double p_sum = pn + E1 + E2;
++        auto slope_at      = [&](double z) {
++          double sx = 0.0;
++          double sy = 0.0;
++          double sw = 0.0;
++          for (const auto& [p, x] : impacts) {
++            const double w = p / ((*x)[2] - z);
++            sx += w * (*x)[0];
++            sy += w * (*x)[1];
++            sw += w;
++          }
++          const double den = p_sum + z * sw;
++          return V3{sx / den, sy / den, 1.0};
++        };
++        const double th_exp = 2 * std::asin(std::min(1.0, m_pi0 / (2 * std::sqrt(E1 * E2))));
++        double z_near       = 0.0;
++        double z_far        = std::min(m_zZDC, 0.999 * z_first);
++        for (int it = 0; it < m_cfg.lambdaPairingIterations; ++it) {
++          const double z = 0.5 * (z_near + z_far);
++          const V3 s     = slope_at(z);
++          const V3 v{s[0] * z, s[1] * z, z};
++          if (angle(sub(x1, v), sub(x2, v)) > th_exp) {
++            z_far = z;
++          } else {
++            z_near = z;
++          }
++        }
++        const V3 s = slope_at(z_near);
++        const V3 v{s[0] * z_near, s[1] * z_near, z_near};
++        const V3 un = unit(sub(xn, v));
++        const V3 u1 = unit(sub(x1, v));
++        const V3 u2 = unit(sub(x2, v));
++        V3 pg{};
++        V3 pl{};
++        for (int q = 0; q < 3; ++q) {
++          pg[q] = E1 * u1[q] + E2 * u2[q];
++          pl[q] = pg[q] + pn * un[q];
++        }
++        const double Eg       = E1 + E2;
++        const double El       = En + E1 + E2;
++        const double mpi      = std::sqrt(std::max(0.0, Eg * Eg - (pg[0] * pg[0] + pg[1] * pg[1] + pg[2] * pg[2])));
++        const double p_lambda = norm(pl);
++        const double ml       = std::sqrt(std::max(0.0, El * El - p_lambda * p_lambda));
++        const double tpi      = (mpi - m_pi0) / (m_cfg.lambdaPairingPi0Window * m_pi0);
++        const double tl       = (ml - m_lambda) / m_cfg.lambdaPairingLambdaSigma;
++        const double L        = std::max(p_lambda / m_lambda * m_cfg.lambdaCTau, 1.0);
++        const double depth = z_near / L + std::log(L * std::max(1.0 - std::exp(-m_zZDC / L), 1e-12));
++        const double photon_depth = m_cfg.lambdaPairingMixedPhotonDepthFactor * (x1[2] - m_zZDC) / 100.0;
++        const double score        = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth +
++                             m_cfg.lambdaPairingPhotonDepthWeight * photon_depth +
++                             isolationTerm(clusters, c1.getPosition(), false);
++        if (score < best_score) {
++          best_score = score;
++          best       = {static_cast<int>(cand[ia]), kMixed};
++        }
++      }
++    }
++  }
++  // Both photons outside the ZDC: every pair of external photons, with every ZDC cluster above clusterEmin as the neutron.
++  // The vertex is fitted as for the mixed hypotheses (lever arms); the photon-depth term is a constant, as no ZDC photon
++  // takes part.
++  if (m_cfg.lambdaPairingExternalPair && external != nullptr && external->size() >= 2) {
++    double raw   = 0.0;
++    double Elead = -1.0;
++    int lead     = -1;
++    double cx    = 0.0;
++    double cy    = 0.0;
++    double cz    = 0.0;
++    for (std::size_t k = 0; k < clusters.size(); ++k) {
++      const double E = clusters[k].getEnergy();
++      if (E < clusterEmin) {
++        continue;
++      }
++      raw += E;
++      const auto& pk = clusters[k].getPosition();
++      cx += E * pk.x;
++      cy += E * pk.y;
++      cz += E * pk.z;
++      if (E > Elead) {
++        Elead = E;
++        lead  = static_cast<int>(k);
++      }
++    }
++    const double En = (lead >= 0 && raw > 0.0) ? neutronCorr(raw, neutronScaleCoeff) : 0.0;
++    if (En > m_n) {
++      const double pn = std::sqrt(En * En - m_n * m_n);
++      const V3 xn     = m_cfg.neutronPositionCentroid
++                            ? toProton(edm4hep::Vector3f{static_cast<float>(cx / raw), static_cast<float>(cy / raw),
++                                                         static_cast<float>(cz / raw)})
++                            : toProton(clusters[lead].getPosition());
++      for (std::size_t ka = 0; ka < external->size(); ++ka) {
++        for (std::size_t kb = ka + 1; kb < external->size(); ++kb) {
++          const double E1 = (*external)[ka].energy;
++          const double E2 = (*external)[kb].energy;
++          if (E1 <= 0.0 || E2 <= 0.0) {
++            continue;
++          }
++          const V3 x1          = toProton((*external)[ka].position);
++          const V3 x2          = toProton((*external)[kb].position);
++          const double z_first = std::min({xn[2], x1[2], x2[2]});
++          if (z_first <= 0.0) {
++            continue;
++          }
++          const std::array<std::pair<double, const V3*>, 3> impacts{{{pn, &xn}, {E1, &x1}, {E2, &x2}}};
++          const double p_sum = pn + E1 + E2;
++          auto slope_at      = [&](double z) {
++            double sx = 0.0;
++            double sy = 0.0;
++            double sw = 0.0;
++            for (const auto& [p, x] : impacts) {
++              const double w = p / ((*x)[2] - z);
++              sx += w * (*x)[0];
++              sy += w * (*x)[1];
++              sw += w;
++            }
++            const double den = p_sum + z * sw;
++            return V3{sx / den, sy / den, 1.0};
++          };
++          const double th_exp = 2 * std::asin(std::min(1.0, m_pi0 / (2 * std::sqrt(E1 * E2))));
++          double z_near       = 0.0;
++          double z_far        = std::min(m_zZDC, 0.999 * z_first);
++          for (int it = 0; it < m_cfg.lambdaPairingIterations; ++it) {
++            const double z = 0.5 * (z_near + z_far);
++            const V3 s     = slope_at(z);
++            const V3 v{s[0] * z, s[1] * z, z};
++            if (angle(sub(x1, v), sub(x2, v)) > th_exp) {
++              z_far = z;
++            } else {
++              z_near = z;
++            }
++          }
++          const V3 s = slope_at(z_near);
++          const V3 v{s[0] * z_near, s[1] * z_near, z_near};
++          const V3 un = unit(sub(xn, v));
++          const V3 u1 = unit(sub(x1, v));
++          const V3 u2 = unit(sub(x2, v));
++          V3 pg{};
++          V3 pl{};
++          for (int q = 0; q < 3; ++q) {
++            pg[q] = E1 * u1[q] + E2 * u2[q];
++            pl[q] = pg[q] + pn * un[q];
++          }
++          const double Eg  = E1 + E2;
++          const double El  = En + E1 + E2;
++          const double mpi = std::sqrt(std::max(0.0, Eg * Eg - (pg[0] * pg[0] + pg[1] * pg[1] + pg[2] * pg[2])));
++          const double p_lambda = norm(pl);
++          const double ml       = std::sqrt(std::max(0.0, El * El - p_lambda * p_lambda));
++          const double tpi      = (mpi - m_pi0) / (m_cfg.lambdaPairingPi0Window * m_pi0);
++          const double tl       = (ml - m_lambda) / m_cfg.lambdaPairingLambdaSigma;
++          const double L        = std::max(p_lambda / m_lambda * m_cfg.lambdaCTau, 1.0);
++          const double depth = z_near / L + std::log(L * std::max(1.0 - std::exp(-m_zZDC / L), 1e-12));
++          const double score = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth +
++                               m_cfg.lambdaPairingPhotonDepthWeight * m_cfg.lambdaPairingExternalPairPhotonDepth;
++          if (score < best_score) {
++            best_score = score;
++            best       = {kExternalPair, kExternalPair};
++          }
++        }
++      }
++    }
++  }
++  if (best_score_out != nullptr) {
++    *best_score_out = best_score;
++  }
++  return best;
++}
++
++std::vector<FarForwardNeutralsReconstruction::CrystalPhoton>
++FarForwardNeutralsReconstruction::crystalCandidates(const edm4eic::ClusterCollection& crystalClusters,
++                                                    const edm4eic::ClusterCollection& clusters,
++                                                    const std::vector<std::size_t>& cand,
++                                                    const edm4eic::CalorimeterHitCollection* hcalHits,
++                                                    std::vector<AltEnergy>* alts,
++                                                    const edm4eic::CalorimeterHitCollection* crystalHits) const {
++  using V3        = std::array<double, 3>;
++  const double ca = std::cos(-m_cfg.globalToProtonRotation);
++  const double sa = std::sin(-m_cfg.globalToProtonRotation);
++  auto toProton   = [&](const edm4hep::Vector3f& p) -> V3 {
++    return {p.x * ca + p.z * sa, p.y, -p.x * sa + p.z * ca};
++  };
++
++  // The Hcal hits of the event, each once: the rec hits when given (the photon law was fitted on them), else the
++  // clusters' hits (island clusters that split at local maxima share hits).
++  std::vector<std::pair<V3, edm4eic::CalorimeterHit>> hits;
++  if (hcalHits != nullptr) {
++    for (const auto& hit : *hcalHits) {
++      hits.emplace_back(toProton(hit.getPosition()), hit);
++    }
++  } else {
++    std::set<std::pair<std::uint32_t, int>> seen;
++    for (const auto& cl : clusters) {
++      for (const auto& hit : cl.getHits()) {
++        const auto id = hit.getObjectID();
++        if (seen.insert({id.collectionID, id.index}).second) {
++          hits.emplace_back(toProton(hit.getPosition()), hit);
++        }
++      }
++    }
++  }
++
++  std::vector<CrystalPhoton> out;
++  for (std::size_t k = 0; k < crystalClusters.size(); ++k) {
++    const auto& cc      = crystalClusters[k];
++    const double e_crys = cc.getEnergy();
++    if (e_crys < m_cfg.crystalClusterEmin) {
++      continue;
++    }
++    const V3 xc = toProton(cc.getPosition());
++    if (xc[2] <= 0.0) {
++      continue;
++    }
++    CrystalPhoton cp{k, 0.0, cc.getPosition(), 0.0, {0, 0, 0}, {}};
++    // tagged Hcal clusters behind it: the cluster position projected from the IP to the crystal depth
++    for (std::size_t i : cand) {
++      const V3 xh = toProton(clusters[i].getPosition());
++      if (xh[2] <= 0.0) {
++        continue;
++      }
++      const double s = xc[2] / xh[2];
++      if (std::hypot(xh[0] * s - xc[0], xh[1] * s - xc[1]) <= m_cfg.crystalVetoRadius) {
++        cp.behind.push_back(i);
++      }
++    }
++    // the Hcal column: hits within crystalColumnRadius of the line from the IP through the crystal cluster
++    double sx = 0.0;
++    double sy = 0.0;
++    double sz = 0.0;
++    for (const auto& [xh, hit] : hits) {
++      const double s = xh[2] / xc[2];
++      if (std::hypot(xh[0] - xc[0] * s, xh[1] - xc[1] * s) <= m_cfg.crystalColumnRadius) {
++        const double e  = hit.getEnergy();
++        const auto& pos = hit.getPosition();
++        cp.column_energy += e;
++        sx += e * pos.x;
++        sy += e * pos.y;
++        sz += e * pos.z;
++      }
++    }
++    if (cp.column_energy > 0.0) {
++      cp.column_position = {static_cast<float>(sx / cp.column_energy), static_cast<float>(sy / cp.column_energy),
++                            static_cast<float>(sz / cp.column_energy)};
++    }
++    // the photon carries at least its crystal energy (the crystals clip at 2 GeV each, so that is a lower bound)
++    const auto& law = m_cfg.crystalGammaLaw;
++    cp.energy       = std::max(e_crys, law.at(0) * e_crys + law.at(1) * cp.column_energy + law.at(2));
++    out.push_back(std::move(cp));
++  }
++
++  // The veto: a crystal cluster with a tagged Hcal cluster behind it is that photon already, unless (crystalVetoSplit)
++  // two or more candidates sit in front of the same tagged cluster (two photons sharing one Hcal cluster).
++  std::vector<int> in_front(clusters.size(), 0);
++  for (const auto& cp : out) {
++    for (std::size_t i : cp.behind) {
++      ++in_front[i];
++    }
++  }
++  // crystalEnergyAlternative: each tagged Hcal cluster with a crystal cluster in front takes the leading one's energy
++  if (alts != nullptr && m_cfg.crystalEnergyAlternative) {
++    for (std::size_t i : cand) {
++      const CrystalPhoton* lead = nullptr;
++      for (const auto& cp : out) {
++        if (std::ranges::find(cp.behind, i) != cp.behind.end() &&
++            (lead == nullptr || crystalClusters[cp.index].getEnergy() > crystalClusters[lead->index].getEnergy())) {
++          lead = &cp;
++        }
++      }
++      if (lead != nullptr) {
++        const double out_e = m_cfg.crystalAltColumnOut
++                                 ? std::max(0.0, m_cfg.crystalColumnNeutronScale * lead->column_energy - clusters[i].getEnergy())
++                                 : 0.0;
++        alts->push_back({i, lead->energy, lead->index, out_e, lead->column_position});
++      }
++    }
++  }
++  // hcalAxisAlternative: each tagged Hcal cluster also offers the axis law's energy (crystal and Hcal rec hits within
++  // hcalAxisRadius of the line from the IP through it)
++  if (alts != nullptr && m_cfg.hcalAxisAlternative && crystalHits != nullptr && hcalHits != nullptr) {
++    const auto& law = m_cfg.hcalAxisLaw;
++    for (std::size_t i : cand) {
++      const V3 xh = toProton(clusters[i].getPosition());
++      if (xh[2] <= 0.0) {
++        continue;
++      }
++      const double tx = xh[0] / xh[2];
++      const double ty = xh[1] / xh[2];
++      double e_crys   = 0.0;
++      for (const auto& hit : *crystalHits) {
++        const V3 x = toProton(hit.getPosition());
++        if (std::hypot(x[0] - tx * x[2], x[1] - ty * x[2]) <= m_cfg.hcalAxisRadius) {
++          e_crys += hit.getEnergy();
++        }
++      }
++      double e_col = 0.0;
++      double sx    = 0.0;
++      double sy    = 0.0;
++      double sz    = 0.0;
++      for (const auto& [x, hit] : hits) {
++        if (std::hypot(x[0] - tx * x[2], x[1] - ty * x[2]) <= m_cfg.hcalAxisRadius) {
++          const double e  = hit.getEnergy();
++          const auto& pos = hit.getPosition();
++          e_col += e;
++          sx += e * pos.x;
++          sy += e * pos.y;
++          sz += e * pos.z;
++        }
++      }
++      const double e_ax = law.at(0) * e_crys + law.at(1) * e_col + law.at(2);
++      if (e_ax <= 0.0) {
++        continue;
++      }
++      const double out_e = m_cfg.crystalAltColumnOut
++                               ? std::max(0.0, m_cfg.crystalColumnNeutronScale * e_col - clusters[i].getEnergy())
++                               : 0.0;
++      const edm4hep::Vector3f centroid =
++          e_col > 0.0 ? edm4hep::Vector3f{static_cast<float>(sx / e_col), static_cast<float>(sy / e_col),
++                                          static_cast<float>(sz / e_col)}
++                      : clusters[i].getPosition();
++      alts->push_back({i, e_ax, kNoCrystal, out_e, centroid});
++    }
++  }
++  std::erase_if(out, [&](const CrystalPhoton& cp) {
++    if (cp.behind.empty()) {
++      return false;
++    }
++    if (m_cfg.crystalVetoSplit) {
++      return std::ranges::none_of(cp.behind, [&](std::size_t i) { return in_front[i] >= 2; });
++    }
++    return true;
++  });
++  return out;
++}
++
++double FarForwardNeutralsReconstruction::isolationTerm(const edm4eic::ClusterCollection& clusters,
++                                                       const edm4hep::Vector3f& pos, bool crystal) const {
++  if (m_cfg.lambdaPairingIsolationWeight == 0.0 || clusters.empty()) {
++    return 0.0;
++  }
++  std::size_t lead = 0;
++  for (std::size_t k = 1; k < clusters.size(); ++k) {
++    if (clusters[k].getEnergy() > clusters[lead].getEnergy()) {
++      lead = k;
++    }
++  }
++  const double ca = std::cos(-m_cfg.globalToProtonRotation);
++  const double sa = std::sin(-m_cfg.globalToProtonRotation);
++  auto toProton   = [&](const edm4hep::Vector3f& p) -> std::array<double, 3> {
++    return {p.x * ca + p.z * sa, p.y, -p.x * sa + p.z * ca};
++  };
++  const auto xl = toProton(clusters[lead].getPosition());
++  auto x        = toProton(pos);
++  if (crystal && x[2] > 0.0) {
++    const double f = xl[2] / x[2];
++    x[0] *= f;
++    x[1] *= f;
++  }
++  const double d = std::hypot(x[0] - xl[0], x[1] - xl[1]);
++  return m_cfg.lambdaPairingIsolationWeight * std::exp(-d / m_cfg.lambdaPairingIsolationLength);
++}
++
++FarForwardNeutralsReconstruction::CrystalChoice FarForwardNeutralsReconstruction::chooseCrystalHypothesis(
++    const edm4eic::ClusterCollection& clusters, const std::vector<std::size_t>& cand,
++    const std::vector<CrystalPhoton>& crystals, const std::vector<AltEnergy>& alts,
++    const std::vector<double>& gammaScaleCoeff,
++    const std::vector<double>& neutronScaleCoeff, const CorrFunc& gammaCorr, const CorrFunc& neutronCorr,
++    double clusterEmin, const std::vector<ExternalPhoton>* external) const {
++  const double m_n      = m_particleSvc.particle(2112).mass;
++  const double m_pi0    = m_particleSvc.particle(111).mass;
++  const double m_lambda = m_particleSvc.particle(3122).mass;
++
++  using V3        = std::array<double, 3>;
++  const double ca = std::cos(-m_cfg.globalToProtonRotation);
++  const double sa = std::sin(-m_cfg.globalToProtonRotation);
++  auto toProton   = [&](const edm4hep::Vector3f& p) -> V3 {
++    return {p.x * ca + p.z * sa, p.y, -p.x * sa + p.z * ca};
++  };
++  auto sub  = [](const V3& a, const V3& b) { return V3{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
++  auto norm = [](const V3& a) { return std::sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]); };
++  auto unit = [&](const V3& a) {
++    const double n = norm(a);
++    return V3{a[0] / n, a[1] / n, a[2] / n};
++  };
++  auto angle = [&](const V3& a, const V3& b) {
++    const V3 ua = unit(a);
++    const V3 ub = unit(b);
++    return std::acos(std::clamp(ua[0] * ub[0] + ua[1] * ub[1] + ua[2] * ub[2], -1.0, 1.0));
++  };
++
++  // The Hcal energy above clusterEmin and its moment (lab frame): a hypothesis's neutron is this minus its Hcal photon
++  // and minus the columns behind its crystal photons.
++  double tot = 0.0;
++  std::array<double, 3> moment{0.0, 0.0, 0.0};
++  for (const auto& cl : clusters) {
++    const double e = cl.getEnergy();
++    if (e < clusterEmin) {
++      continue;
++    }
++    tot += e;
++    moment[0] += e * cl.getPosition().x;
++    moment[1] += e * cl.getPosition().y;
++    moment[2] += e * cl.getPosition().z;
++  }
++  // the neutron energy and proton-frame position after removing an Hcal photon (or -1) and crystal photons' columns
++  auto neutron = [&](std::initializer_list<int> hcals, std::initializer_list<const CrystalPhoton*> crys,
++                     std::initializer_list<const AltEnergy*> alt_out = {}) -> std::pair<double, V3> {
++    double raw = tot;
++    std::array<double, 3> m = moment;
++    for (const auto* a : alt_out) {
++      if (a == nullptr || a->column_out <= 0.0) {
++        continue;
++      }
++      raw -= a->column_out;
++      m[0] -= a->column_out * a->column_position.x;
++      m[1] -= a->column_out * a->column_position.y;
++      m[2] -= a->column_out * a->column_position.z;
++    }
++    for (int hcal : hcals) {
++      if (hcal < 0 || clusters[hcal].getEnergy() < clusterEmin) {
++        continue;
++      }
++      const double e = clusters[hcal].getEnergy();
++      raw -= e;
++      m[0] -= e * clusters[hcal].getPosition().x;
++      m[1] -= e * clusters[hcal].getPosition().y;
++      m[2] -= e * clusters[hcal].getPosition().z;
++    }
++    for (const auto* c : crys) {
++      const double e_out = m_cfg.crystalColumnNeutronScale * c->column_energy;
++      raw -= e_out;
++      m[0] -= e_out * c->column_position.x;
++      m[1] -= e_out * c->column_position.y;
++      m[2] -= e_out * c->column_position.z;
++    }
++    if (raw <= 0.0) {
++      return {0.0, V3{0, 0, 0}};
++    }
++    const V3 xn = toProton(edm4hep::Vector3f{static_cast<float>(m[0] / raw), static_cast<float>(m[1] / raw),
++                                             static_cast<float>(m[2] / raw)});
++    return {neutronCorr(raw, neutronScaleCoeff), xn};
++  };
++
++  // The fitted masses and the decay-depth term of photons (E1, x1), (E2, x2) with the neutron (En, xn). The vertex
++  // slope is momentum-weighted when every impact point is in the ZDC (as the ZDC pairs), or taken with each daughter's
++  // lever arm when one photon is in the B0 ECal (as the mixed hypotheses). Returns +inf when it cannot be fitted.
++  auto fit = [&](double E1, const V3& x1, double E2, const V3& x2, double En, const V3& xn, bool lever_arm) {
++    if (En <= m_n || E1 <= 0.0 || E2 <= 0.0) {
++      return std::numeric_limits<double>::infinity();
++    }
++    const double pn     = std::sqrt(En * En - m_n * m_n);
++    const double th_exp = 2 * std::asin(std::min(1.0, m_pi0 / (2 * std::sqrt(E1 * E2))));
++    const std::array<std::pair<double, const V3*>, 3> impacts{{{pn, &xn}, {E1, &x1}, {E2, &x2}}};
++    const double p_sum   = pn + E1 + E2;
++    const double z_first = std::min({xn[2], x1[2], x2[2]});
++    auto slope_at        = [&](double z) {
++      if (!lever_arm) {
++        const double wz = pn * xn[2] + E1 * x1[2] + E2 * x2[2];
++        return V3{(pn * xn[0] + E1 * x1[0] + E2 * x2[0]) / wz, (pn * xn[1] + E1 * x1[1] + E2 * x2[1]) / wz, 1.0};
++      }
++      double sx = 0.0;
++      double sy = 0.0;
++      double sw = 0.0;
++      for (const auto& [p, x] : impacts) {
++        const double w = p / ((*x)[2] - z);
++        sx += w * (*x)[0];
++        sy += w * (*x)[1];
++        sw += w;
++      }
++      const double den = p_sum + z * sw;
++      return V3{sx / den, sy / den, 1.0};
++    };
++    if (z_first <= 0.0) {
++      return std::numeric_limits<double>::infinity();
++    }
++    double z_near = 0.0;
++    double z_far  = lever_arm ? std::min(m_zZDC, 0.999 * z_first) : m_zZDC;
++    for (int it = 0; it < m_cfg.lambdaPairingIterations; ++it) {
++      const double z = 0.5 * (z_near + z_far);
++      const V3 s     = slope_at(z);
++      const V3 v{s[0] * z, s[1] * z, z};
++      if (angle(sub(x1, v), sub(x2, v)) > th_exp) {
++        z_far = z;
++      } else {
++        z_near = z;
++      }
++    }
++    const V3 s = slope_at(z_near);
++    const V3 v{s[0] * z_near, s[1] * z_near, z_near};
++    const V3 un = unit(sub(xn, v));
++    const V3 u1 = unit(sub(x1, v));
++    const V3 u2 = unit(sub(x2, v));
++    V3 pg{};
++    V3 pl{};
++    for (int q = 0; q < 3; ++q) {
++      pg[q] = E1 * u1[q] + E2 * u2[q];
++      pl[q] = pg[q] + pn * un[q];
++    }
++    const double Eg       = E1 + E2;
++    const double El       = En + E1 + E2;
++    const double mpi      = std::sqrt(std::max(0.0, Eg * Eg - (pg[0] * pg[0] + pg[1] * pg[1] + pg[2] * pg[2])));
++    const double p_lambda = norm(pl);
++    const double ml       = std::sqrt(std::max(0.0, El * El - p_lambda * p_lambda));
++    const double tpi      = (mpi - m_pi0) / (m_cfg.lambdaPairingPi0Window * m_pi0);
++    const double tl       = (ml - m_lambda) / m_cfg.lambdaPairingLambdaSigma;
++    const double L        = std::max(p_lambda / m_lambda * m_cfg.lambdaCTau, 1.0);
++    const double depth    = z_near / L + std::log(L * std::max(1.0 - std::exp(-m_zZDC / L), 1e-12));
++    return tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth;
++  };
++
++  // the energies a tagged Hcal photon may carry: the Hcal law's, and the crystal law's when a crystal cluster is in front
++  auto options = [&](std::size_t i) {
++    std::vector<std::pair<double, const AltEnergy*>> o{{gammaCorr(clusters[i].getEnergy(), gammaScaleCoeff), nullptr}};
++    for (const auto& a : alts) {
++      if (a.hcal == i) {
++        o.emplace_back(a.energy, &a);
++      }
++    }
++    return o;
++  };
++
++  // the crystal cluster an alternative energy links (-1: none, the Hcal axis law)
++  auto crysIndex = [](const AltEnergy* a) {
++    return (a == nullptr || a->crystal == kNoCrystal) ? -1 : static_cast<int>(a->crystal);
++  };
++
++  // the isolation term of a crystal photon (lambdaPairingIsolationCrystal)
++  auto iso_crystal = [&](const CrystalPhoton& c) {
++    return m_cfg.lambdaPairingIsolationCrystal ? isolationTerm(clusters, c.position, true) : 0.0;
++  };
++
++  CrystalChoice best;
++  const double wpd = m_cfg.lambdaPairingPhotonDepthWeight;
++  for (std::size_t ka = 0; ka < crystals.size(); ++ka) {
++    const auto& c1 = crystals[ka];
++    const V3 x1    = toProton(c1.position);
++    // crystal + tagged Hcal photon (never the Hcal cluster behind the crystal: the same photon)
++    for (std::size_t i : cand) {
++      if (std::ranges::find(c1.behind, i) != c1.behind.end()) {
++        continue;
++      }
++      const V3 x2 = toProton(clusters[i].getPosition());
++      for (const auto& [e2, alt] : options(i)) {
++        const auto [En, xn] = neutron({static_cast<int>(i)}, {&c1}, {alt});
++        const double score  = fit(c1.energy, x1, e2, x2, En, xn, false) +
++                             wpd * ((x2[2] - m_zZDC) / 100.0 + m_cfg.crystalPhotonDepth) +
++                             isolationTerm(clusters, clusters[i].getPosition(), false) + iso_crystal(c1);
++        if (score < best.score) {
++          best = {score, static_cast<int>(ka), -1, static_cast<int>(i), -1};
++          if (alt != nullptr) {
++            best.e_hcal    = alt->energy;
++            best.crys_hcal = crysIndex(alt);
++          }
++        }
++      }
++    }
++    // crystal + crystal
++    for (std::size_t kb = ka + 1; kb < crystals.size(); ++kb) {
++      const auto& c2      = crystals[kb];
++      const auto [En, xn] = neutron({}, {&c1, &c2});
++      const double score  = fit(c1.energy, x1, c2.energy, toProton(c2.position), En, xn, false) +
++                           wpd * 2 * m_cfg.crystalPhotonDepth + iso_crystal(c1) + iso_crystal(c2);
++      if (score < best.score) {
++        best = {score, static_cast<int>(ka), static_cast<int>(kb), -1, -1};
++      }
++    }
++    // crystal + external (B0 ECal) photon
++    if (external != nullptr) {
++      const auto [En, xn] = neutron({}, {&c1});
++      for (std::size_t ke = 0; ke < external->size(); ++ke) {
++        const auto& ext    = (*external)[ke];
++        const double score = fit(c1.energy, x1, ext.energy, toProton(ext.position), En, xn, true) +
++                             wpd * m_cfg.lambdaPairingMixedPhotonDepthFactor * m_cfg.crystalPhotonDepth +
++                             iso_crystal(c1);
++        if (score < best.score) {
++          best = {score, static_cast<int>(ka), -1, -1, static_cast<int>(ke)};
++        }
++      }
++    }
++  }
++  if (alts.empty()) {
++    return best;
++  }
++  // Hcal pairs with at least one crystal-law energy (the pairs with Hcal-law energies only are chooseLambdaPhotonPair's);
++  // two photons never take the same crystal cluster
++  for (std::size_t ia = 0; ia < cand.size(); ++ia) {
++    for (std::size_t ib = ia + 1; ib < cand.size(); ++ib) {
++      const std::size_t i = cand[ia];
++      const std::size_t j = cand[ib];
++      const auto oi       = options(i);
++      const auto oj       = options(j);
++      if (oi.size() == 1 && oj.size() == 1) {
++        continue;
++      }
++      const V3 x1 = toProton(clusters[i].getPosition());
++      const V3 x2 = toProton(clusters[j].getPosition());
++      for (const auto& [e1, a1] : oi) {
++        for (const auto& [e2, a2] : oj) {
++          if ((a1 == nullptr && a2 == nullptr) ||
++              (a1 != nullptr && a2 != nullptr && a1->crystal != kNoCrystal && a1->crystal == a2->crystal)) {
++            continue;
++          }
++          const auto [En, xn] = neutron({static_cast<int>(i), static_cast<int>(j)}, {}, {a1, a2});
++          const double score =
++              fit(e1, x1, e2, x2, En, xn, false) + wpd * (x1[2] + x2[2] - 2 * m_zZDC) / 100.0 +
++              isolationTerm(clusters, clusters[i].getPosition(), false) +
++              isolationTerm(clusters, clusters[j].getPosition(), false);
++          if (score < best.score) {
++            best = {score, -1, -1, static_cast<int>(i), -1, static_cast<int>(j), a1 ? a1->energy : -1.0,
++                    a2 ? a2->energy : -1.0, crysIndex(a1), crysIndex(a2)};
++          }
++        }
++      }
++    }
++  }
++  if (external != nullptr) {
++    for (const auto& a : alts) {
++      const auto [En, xn] = neutron({static_cast<int>(a.hcal)}, {}, {&a});
++      const V3 x1         = toProton(clusters[a.hcal].getPosition());
++      for (std::size_t ke = 0; ke < external->size(); ++ke) {
++        const auto& ext    = (*external)[ke];
++        const double score = fit(a.energy, x1, ext.energy, toProton(ext.position), En, xn, true) +
++                             wpd * m_cfg.lambdaPairingMixedPhotonDepthFactor * (x1[2] - m_zZDC) / 100.0 +
++                             isolationTerm(clusters, clusters[a.hcal].getPosition(), false);
++        if (score < best.score) {
++          best = {score, -1, -1, static_cast<int>(a.hcal), static_cast<int>(ke), -1, a.energy, -1.0, crysIndex(&a), -1};
++        }
++      }
++    }
++  }
+   return best;
+ }
+ 
+@@ -416,12 +1206,32 @@ void FarForwardNeutralsReconstruction::process(
+     const FarForwardNeutralsReconstruction::Output& output) const {
+ 
+   // Unpacking
+-  const auto [clustersHcal, clustersB0, clustersEcalEndcapP, clustersLFHCAL]           = input;
++  const auto [clustersHcal, clustersB0, clustersEcalEndcapP, clustersLFHCAL, clustersEcalZDC, hitsHcalZDC, hitsEcalZDC] =
++      input;
+   auto [out_neutralsHcal, out_neutralsB0, out_neutralsEcalEndcapP, out_neutralsLFHCAL] = output;
+ 
+   // Global
+   int n_neutrons = 0;
+ 
++  // B0-Ecal photon candidates for the ZDC Lambda pairing: the B0 neutrals' LeaderOnly set (the leading clusters
++  // above clusterEminB0Ecal), with the B0 photon energy law
++  std::vector<ExternalPhoton> external_b0;
++  if (m_cfg.lambdaPairingHcalZDC && m_cfg.lambdaPairingMixed && clustersB0 != nullptr) {
++    std::vector<std::size_t> idx;
++    for (std::size_t i = 0; i < clustersB0->size(); ++i) {
++      if ((*clustersB0)[i].getEnergy() >= m_cfg.clusterEminB0Ecal) {
++        idx.push_back(i);
++      }
++    }
++    std::ranges::sort(idx, [&](std::size_t a, std::size_t b) {
++      return (*clustersB0)[a].getEnergy() > (*clustersB0)[b].getEnergy();
++    });
++    for (std::size_t k = 0; k < std::min(kLeadingGammas, idx.size()); ++k) {
++      const auto& cl = (*clustersB0)[idx[k]];
++      external_b0.push_back({corrPower(cl.getEnergy(), m_cfg.gammaScaleCorrCoeffB0Ecal), cl.getPosition()});
++    }
++  }
++
+   // ZDC-Hcal
+   n_neutrons += processNeutralCalo(clustersHcal, out_neutralsHcal,
+                                    /*gammaScaleCoeff=*/m_cfg.gammaScaleCorrCoeffHcalZDC,
+@@ -435,7 +1245,11 @@ void FarForwardNeutralsReconstruction::process(
+                                    /*clusterEmin=*/m_cfg.clusterEminHcalZDC,
+                                    /*neutronMode=*/NeutronMode::SumAll,
+                                    /*associateAllClustersToNeutron=*/true,
+-                                   /*lambdaPairing=*/m_cfg.lambdaPairingHcalZDC);
++                                   /*lambdaPairing=*/m_cfg.lambdaPairingHcalZDC,
++                                   /*external=*/&external_b0,
++                                   /*crystalClusters=*/clustersEcalZDC,
++                                   /*hcalHits=*/hitsHcalZDC,
++                                   /*crystalHits=*/hitsEcalZDC);
+ 
+   // B0-Ecal
+   n_neutrons += processNeutralCalo(clustersB0, out_neutralsB0,
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstruction.h b/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+index 585d3462..95e713e7 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+@@ -5,8 +5,10 @@
+ #include <DD4hep/Detector.h>
+ #include <algorithms/algorithm.h>
+ #include <algorithms/geo.h>
++#include <edm4eic/CalorimeterHitCollection.h>
+ #include <edm4eic/ClusterCollection.h>
+ #include <edm4eic/ReconstructedParticleCollection.h>
++#include <edm4hep/Vector3f.h>
+ #include <spdlog/logger.h>
+ #include <gsl/pointers>
+ #include <memory>
+@@ -14,6 +16,7 @@
+ #include <string_view> // for string_view
+ #include <vector>
+ #include <functional>
++#include <limits>
+ #include <utility>
+ #include "algorithms/interfaces/WithPodConfig.h"
+ #include "services/particle/ParticleSvc.h"
+@@ -27,7 +30,10 @@ using FarForwardNeutralsReconstructionAlgorithm =
+         algorithms::Input<const edm4eic::ClusterCollection,  // clusters ZDC-Hcal
+                           const edm4eic::ClusterCollection,  // clusters B0-Ecal
+                           const edm4eic::ClusterCollection,  // clusters EndcapP-Ecal
+-                          const edm4eic::ClusterCollection>, // clusters LFHCAL
++                          const edm4eic::ClusterCollection,  // clusters LFHCAL
++                          const edm4eic::ClusterCollection,  // clusters ZDC crystal section (EcalFarForwardZDC)
++                          const edm4eic::CalorimeterHitCollection,  // hits ZDC-Hcal (the column behind a crystal)
++                          const edm4eic::CalorimeterHitCollection>, // hits ZDC crystal section (the Hcal axis law)
+ 
+         algorithms::Output<
+             edm4eic::ReconstructedParticleCollection,   // neutrons/gamma in ZDC-Hcal
+@@ -61,7 +67,8 @@ public:
+       : FarForwardNeutralsReconstructionAlgorithm{
+             name,
+ 
+-            {"clustersHcal", "clustersB0", "clustersEcalEndCapP", "clustersLFHCAL"},
++            {"clustersHcal", "clustersB0", "clustersEcalEndCapP", "clustersLFHCAL", "clustersEcalZDC",
++             "hitsHcalZDC", "hitsEcalZDC"},
+ 
+             {"outputNeutralsHcal", "outputNeutralsB0", "outputNeutralsEcalEndCapP",
+              "outputNeutralsLFHCAL"},
+@@ -85,6 +92,62 @@ private:
+ 
+   static double corrPower(double E, const std::vector<double>& coeffs);
+ 
++  /** LeaderOnly photons: the leading clusters kept per calorimeter */
++  static constexpr std::size_t kLeadingGammas = 4;
++
++  /** A photon candidate of another calorimeter (the B0 ECal) offered to the ZDC Lambda pairing: its corrected
++      energy and its cluster position (lab frame, mm) */
++  struct ExternalPhoton {
++    double energy;
++    edm4hep::Vector3f position;
++  };
++
++  /** chooseLambdaPhotonPair's second index when the winning hypothesis pairs one ZDC cluster with an external photon */
++  static constexpr int kMixed = -2;
++
++  /** chooseLambdaPhotonPair's result when two external photons win: no ZDC cluster is a photon */
++  static constexpr int kExternalPair = -3;
++
++  /** A photon candidate seeded by a crystal-section cluster: the crystal cluster's index, its energy (crystalGammaLaw
++      of the crystal energy and the Hcal column), its position (lab frame, mm), and the Hcal column behind it (energy
++      and energy-weighted centroid), which leaves the neutron when the candidate is a photon */
++  struct CrystalPhoton {
++    std::size_t index;
++    double energy;
++    edm4hep::Vector3f position;
++    double column_energy;
++    edm4hep::Vector3f column_position;
++    std::vector<std::size_t> behind; // tagged Hcal clusters within crystalVetoRadius behind it
++  };
++
++  /** The crystal law's energy for a tagged Hcal cluster with a crystal cluster in front of it (crystalEnergyAlternative):
++      the Hcal cluster's index, the energy, and the crystal cluster's index in its collection */
++  /** AltEnergy::crystal of an energy that links no crystal cluster (the Hcal axis law) */
++  static constexpr std::size_t kNoCrystal = std::numeric_limits<std::size_t>::max();
++  struct AltEnergy {
++    std::size_t hcal;
++    double energy;
++    std::size_t crystal; // the crystal cluster it links, or kNoCrystal
++    double column_out;                // energy leaving the neutron with it (crystalAltColumnOut), Hcal clusters' scale
++    edm4hep::Vector3f column_position; // its column's energy-weighted centroid
++  };
++
++  /** The best hypothesis with a crystal photon or a crystal-law energy: its score and its photons — crystal candidates a,
++      b; tagged Hcal clusters hcal, hcal2 (e_hcal, e_hcal2 >= 0: their crystal-law energy, crystal cluster crys_hcal,
++      crys_hcal2 linked too); external photon ext (unused ones -1) */
++  struct CrystalChoice {
++    double score   = std::numeric_limits<double>::infinity();
++    int a          = -1;
++    int b          = -1;
++    int hcal       = -1;
++    int ext        = -1;
++    int hcal2      = -1;
++    double e_hcal  = -1.0;
++    double e_hcal2 = -1.0;
++    int crys_hcal  = -1;
++    int crys_hcal2 = -1;
++  };
++
+   int processNeutralCalo(const edm4eic::ClusterCollection* clusters,
+                          edm4eic::ReconstructedParticleCollection* out_neutrals,
+                          const std::vector<double>& gammaScaleCoeff,
+@@ -92,16 +155,51 @@ private:
+                          bool canDetectNeutrons, const CorrFunc& gammaCorr,
+                          const CorrFunc& neutronCorr, GammaMode gammaMode,
+                          double gammaLeaderFracMin, double clusterEmin, NeutronMode neutronMode,
+-                         bool associateAllClustersToNeutron, bool lambdaPairing = false) const;
++                         bool associateAllClustersToNeutron, bool lambdaPairing = false,
++                         const std::vector<ExternalPhoton>* external = nullptr,
++                         const edm4eic::ClusterCollection* crystalClusters = nullptr,
++                         const edm4eic::CalorimeterHitCollection* hcalHits  = nullptr,
++                         const edm4eic::CalorimeterHitCollection* crystalHits = nullptr) const;
++
++  /** The crystal candidates of an event: crystal clusters above crystalClusterEmin that no tagged Hcal cluster (cand)
++      sits behind (crystalVetoSplit: unless two or more candidates sit in front of that Hcal cluster). The column is
++      summed over the Hcal rec hits (hcalHits), the hits the photon law was fitted on; without them, over the clusters'
++      hits (HEXPLIT subcells, which move energy toward neighbouring deposits). */
++  std::vector<CrystalPhoton> crystalCandidates(const edm4eic::ClusterCollection& crystalClusters,
++                                               const edm4eic::ClusterCollection& clusters,
++                                               const std::vector<std::size_t>& cand,
++                                               const edm4eic::CalorimeterHitCollection* hcalHits,
++                                               std::vector<AltEnergy>* alts = nullptr,
++                                               const edm4eic::CalorimeterHitCollection* crystalHits = nullptr) const;
++
++  /** The best Lambda -> n gamma gamma hypothesis with at least one crystal photon (crystal + tagged Hcal cluster,
++      crystal + crystal, crystal + external photon), scored as chooseLambdaPhotonPair scores its classes */
++  CrystalChoice chooseCrystalHypothesis(const edm4eic::ClusterCollection& clusters,
++                                        const std::vector<std::size_t>& cand,
++                                        const std::vector<CrystalPhoton>& crystals,
++                                        const std::vector<AltEnergy>& alts,
++                                        const std::vector<double>& gammaScaleCoeff,
++                                        const std::vector<double>& neutronScaleCoeff,
++                                        const CorrFunc& gammaCorr, const CorrFunc& neutronCorr,
++                                        double clusterEmin,
++                                        const std::vector<ExternalPhoton>* external) const;
+ 
+   /** Among the photon candidates `cand` (cluster indices), the pair that best fits Lambda -> n gamma gamma with the
+-      neutron made of every other cluster above clusterEmin; {-1, -1} when no pair can be fitted. */
++      neutron made of every other cluster above clusterEmin; {-1, -1} when no pair can be fitted. With `external`
++      photons, every candidate paired with each external photon is a hypothesis too; if one wins, the result is
++      {its cluster index, kMixed}. */
+   std::pair<int, int> chooseLambdaPhotonPair(const edm4eic::ClusterCollection& clusters,
+                                              const std::vector<std::size_t>& cand,
+                                              const std::vector<double>& gammaScaleCoeff,
+                                              const std::vector<double>& neutronScaleCoeff,
+                                              const CorrFunc& gammaCorr, const CorrFunc& neutronCorr,
+-                                             double clusterEmin) const;
++                                             double clusterEmin,
++                                             const std::vector<ExternalPhoton>* external = nullptr,
++                                             double* best_score_out                      = nullptr) const;
++  /** The isolation term of a photon at `pos` (lab frame): lambdaPairingIsolationWeight * exp(-d / length), d the transverse
++      distance in the proton frame to the most energetic of `clusters`; a crystal photon's position is first projected
++      along its line from the IP to that cluster's depth. 0 when the weight is 0 or there is no cluster. */
++  double isolationTerm(const edm4eic::ClusterCollection& clusters, const edm4hep::Vector3f& pos, bool crystal) const;
+   double m_zZDC{35800}; // mm, the ZDC depth (offsetPositionName), as LambdaReconstruction's zMax
+ };
+ 
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+index 19197a13..476344f2 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -53,6 +53,64 @@ struct FarForwardNeutralsReconstructionConfig {
+   /** Lambda pairing: weight of the photons' depth in the ZDC (per 100 mm, summed over the pair); true photons
+       shower earlier than the neutron fragments that pass the photon box */
+   double lambdaPairingPhotonDepthWeight = 1.0;
++  /** Lambda pairing with a photon in the B0 ECal: beside the ZDC photon pairs, every tagged ZDC cluster with each B0
++      photon candidate (the B0 neutrals' leading clusters) is fitted as Lambda -> n gamma gamma, the vertex slope taken
++      with each daughter's lever arm (B0 at ~7 m, the ZDC at ~36 m). If such a hypothesis wins, only its ZDC cluster is
++      a ZDC photon; LambdaReconstruction pairs it with the B0 photon. */
++  bool lambdaPairingMixed = false;
++  /** Mixed hypotheses: factor on the single ZDC photon's depth term (the pair term sums two photons) */
++  double lambdaPairingMixedPhotonDepthFactor = 3.0;
++  /** Lambda pairing with both photons outside the ZDC: every pair of B0 photon candidates, with every ZDC cluster as the
++      neutron, is a hypothesis too; if it wins, no ZDC cluster is a ZDC photon. */
++  bool lambdaPairingExternalPair = false;
++  /** The photon-depth term of that hypothesis, which has no ZDC photon (a ZDC pair carries the depth of two photons,
++      about -16 per 100 mm from the ZDC centre; a mixed one lambdaPairingMixedPhotonDepthFactor times one photon's) */
++  double lambdaPairingExternalPairPhotonDepth = -30.0;
++  /** Crystal-seeded photons in the ZDC Lambda pairing: a cluster of the LYSO crystal section in front of the ZDC
++      (EcalFarForwardZDCClusters) with no tagged ZDC-Hcal photon cluster behind it is a photon hypothesis too, paired
++      with a tagged Hcal cluster, another crystal cluster or a B0 photon. Its direction is the crystal cluster's, its
++      energy crystalGammaLaw applied to the crystal energy and the Hcal energy in a column behind it (that column energy
++      leaves the neutron). If such a hypothesis wins, the crystal photon is written with the crystal cluster linked. */
++  bool lambdaPairingCrystal = false;
++  /** Crystal clusters below this energy are no photon candidates (GeV; the crystal hits clip at 2 GeV each) */
++  double crystalClusterEmin = 0.5;
++  /** A tagged Hcal cluster within this distance (mm) behind a crystal cluster, projected from the IP, is that photon */
++  double crystalVetoRadius = 60.0;
++  /** The Hcal column behind a crystal cluster: Hcal hits within this distance (mm) of the line from the IP */
++  double crystalColumnRadius = 45.0;
++  /** Crystal photon energy E = c0 E_crystal + c1 E_column + c2 (GeV), at least E_crystal */
++  std::vector<double> crystalGammaLaw = {1.962, 47.47, -0.881};
++  /** The photon-depth term of a crystal photon (an Hcal photon carries (z - z_ZDC) / 100 mm) */
++  double crystalPhotonDepth = -10.0;
++  /** Keep a crystal cluster in front of a tagged Hcal cluster when two or more candidates sit in front of that cluster
++      (two photons sharing one Hcal cluster) */
++  bool crystalVetoSplit = false;
++  /** The column leaves the neutron times this factor: the column is rec-hit energy, the Hcal clusters carry
++      1 / sampFrac on top (1 / 0.0273 = 36.6 for the ZDC-Hcal) */
++  double crystalColumnNeutronScale = 1.0;
++  /** A tagged Hcal photon with a crystal cluster in front of it also competes with the crystal law's energy (the leading
++      crystal cluster in front and its column): every hypothesis that uses it is scored with either energy, and if the
++      crystal law's wins, the photon carries that energy and links the crystal cluster too */
++  bool crystalEnergyAlternative = false;
++  /** When a tagged Hcal photon carries the crystal law's energy, the part of its Hcal column beyond its own cluster
++      (column x crystalColumnNeutronScale minus the cluster's energy) leaves the neutron: that energy is in the photon */
++  bool crystalAltColumnOut = false;
++  /** Isolation term of the Lambda pairing: every tagged Hcal photon of a hypothesis adds
++      lambdaPairingIsolationWeight * exp(-d / lambdaPairingIsolationLength) to its score, d the transverse distance (proton
++      frame, mm) to the most energetic Hcal cluster of the event (the neutron core, where the neutron's shower fragments
++      sit); with lambdaPairingIsolationCrystal crystal photons too, at their position projected to that cluster's depth.
++      Weight 0 switches it off. */
++  double lambdaPairingIsolationWeight = 0.0;
++  double lambdaPairingIsolationLength = 60.0; // mm
++  bool lambdaPairingIsolationCrystal  = false;
++  /** Every tagged Hcal photon also competes with the axis law's energy: hcalAxisLaw = {a, b, c} of
++      E = a * E_crys + b * E_col + c, E_crys the crystal rec hits and E_col the Hcal rec hits within hcalAxisRadius of
++      the line from the IP through the cluster (fitted on photon guns). Handled as the crystal law's alternative
++      (crystalEnergyAlternative): scored with either energy; with crystalAltColumnOut its Hcal column beyond its own
++      cluster leaves the neutron. It links no crystal cluster. */
++  bool hcalAxisAlternative         = false;
++  double hcalAxisRadius            = 45.0; // mm
++  std::vector<double> hcalAxisLaw  = {2.594, 45.898, -1.599};
+ };
+ 
+ } // namespace eicrecon
+diff --git a/src/algorithms/reco/LambdaReconstruction.cc b/src/algorithms/reco/LambdaReconstruction.cc
+index f392b963..09768ce6 100644
+--- a/src/algorithms/reco/LambdaReconstruction.cc
++++ b/src/algorithms/reco/LambdaReconstruction.cc
+@@ -14,6 +14,7 @@
+ #include <cstddef>
+ #include <stdexcept>
+ #include <tuple>
++#include <utility>
+ #include <vector>
+ 
+ #include "LambdaReconstruction.h"
+@@ -73,22 +74,42 @@ bool LambdaReconstruction::reconstruct_from_triplet(
+   x1.RotateY(-m_cfg.globalToProtonRotation);
+   x2.RotateY(-m_cfg.globalToProtonRotation);
+ 
+-  // Decay vertex. The Lambda comes from the IP, so at small angles its slope is the momentum-weighted
+-  // centroid of the impact points, sum(p_i x_i) / sum(p_i z_i), whatever the decay depth; only the depth
+-  // along that line is unknown. The gamma-gamma opening angle grows monotonically as the vertex approaches
+-  // the ZDC, so the depth follows by bisection (m_cfg.iterations halvings of [0, zMax]). Iterating the
+-  // vertex along a Lambda direction recomputed from the current vertex diverges transversely for decays
+-  // far from the IP.
++  // Decay vertex. The Lambda comes from the IP along a line of slope s; only the depth z of the decay on
++  // that line is unknown. For a vertex at depth z, the daughters fly from v = s z to their impact points
++  // x_i (depth z_i), and their momenta must sum along s. At small angles this fixes the slope for each z:
++  //   s_perp(z) = sum(w_i x_i,perp) / (P + z sum(w_i)),  w_i = p_i / (z_i - z),  P = sum(p_i),
++  // which is the momentum-weighted centroid sum(p_i x_i,perp) / (P z_i) when every impact point lies at one
++  // depth (all three in the ZDC), and weighs a photon in the B0 ECal (z ~ 7 m) by its own lever arm when the
++  // others reach the ZDC. The gamma-gamma opening angle grows monotonically as the vertex approaches the
++  // impact points, so the depth follows by bisection (m_cfg.iterations halvings of [0, zMax]), with zMax
++  // short of the nearest impact point.
+   const double theta_open_expected =
+       2 * std::asin(std::min(1.0, m_pi0 / (2 * std::sqrt(E1 * E2))));
+-  const double wz = pn * xn.Z() + E1 * x1.Z() + E2 * x2.Z();
+-  const TVector3 slope((pn * xn.X() + E1 * x1.X() + E2 * x2.X()) / wz,
+-                       (pn * xn.Y() + E1 * x1.Y() + E2 * x2.Y()) / wz, 1.0);
++  const std::array<std::pair<double, const TVector3*>, 3> impacts{
++      {{pn, &xn}, {E1, &x1}, {E2, &x2}}};
++  const double p_sum = pn + E1 + E2;
++  auto slope_at      = [&](double z) {
++    double sx = 0.0;
++    double sy = 0.0;
++    double sw = 0.0;
++    for (const auto& [p, x] : impacts) {
++      const double w = p / (x->Z() - z);
++      sx += w * x->X();
++      sy += w * x->Y();
++      sw += w;
++    }
++    const double den = p_sum + z * sw;
++    return TVector3(sx / den, sy / den, 1.0);
++  };
++  const double z_first = std::min({xn.Z(), x1.Z(), x2.Z()});
++  if (z_first <= 0.0) {
++    return false;
++  }
+   double z_near = 0.0;
+-  double z_far  = m_zMax;
++  double z_far  = std::min(m_zMax, 0.999 * z_first);
+   for (int i = 0; i < m_cfg.iterations; i++) {
+     const double z     = 0.5 * (z_near + z_far);
+-    const TVector3 v   = slope * z;
++    const TVector3 v   = slope_at(z) * z;
+     const double theta = (x1 - v).Angle(x2 - v);
+     if (theta > theta_open_expected) {
+       z_far = z;
+@@ -96,7 +117,7 @@ bool LambdaReconstruction::reconstruct_from_triplet(
+       z_near = z;
+     }
+   }
+-  TVector3 vtx = slope * z_near;
++  TVector3 vtx = slope_at(z_near) * z_near;
+ 
+   TLorentzVector n{pn * (xn - vtx).Unit(), En};
+   TLorentzVector g1{E1 * (x1 - vtx).Unit(), E1};
+diff --git a/src/detectors/ZDC/ZDC.cc b/src/detectors/ZDC/ZDC.cc
+index 623d59bf..5ab76e96 100644
+--- a/src/detectors/ZDC/ZDC.cc
++++ b/src/detectors/ZDC/ZDC.cc
+@@ -73,18 +73,21 @@ void InitPlugin(JApplication* app) {
+           .adjacencyMatrix{},
+           .peakNeighbourhoodMatrix{},
+           .readout{},
+-          .sectorDist  = 5.0 * dd4hep::cm,
+-          .localDistXY = {50 * dd4hep::cm, 50 * dd4hep::cm},
++          .sectorDist = 5.0 * dd4hep::cm,
++          // crystal scale (30.3 mm pitch): the 8 neighbours of a crystal, so that separate photons give separate
++          // clusters; the ZDC Lambda pairing seeds photon candidates from them (lambdaPairingCrystal)
++          .localDistXY = {3.5 * dd4hep::cm, 3.5 * dd4hep::cm},
+           .localDistXZ{},
+           .localDistYZ{},
+           .globalDistRPhi{},
+           .globalDistEtaPhi{},
+           .dimScaledLocalDistXY{},
+-          .splitCluster                  = true,
+-          .minClusterHitEdep             = 0.1 * dd4hep::MeV,
+-          .minClusterCenterEdep          = 3.0 * dd4hep::MeV,
+-          .transverseEnergyProfileMetric = "globalDistEtaPhi",
+-          .transverseEnergyProfileScale  = 1.,
++          .splitCluster         = true,
++          .minClusterHitEdep    = 5.0 * dd4hep::MeV,
++          .minClusterCenterEdep = 100.0 * dd4hep::MeV,
++          // energy shared between local maxima by distance, on the LYSO Moliere radius (about 2 cm)
++          .transverseEnergyProfileMetric = "localDistXY",
++          .transverseEnergyProfileScale  = 2.0,
+           .transverseEnergyProfileScaleUnits{},
+       },
+       app // TODO: Remove me once fixed
+diff --git a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+index b3b93f64..22c295e6 100644
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -24,6 +24,9 @@ private:
+   PodioInput<edm4eic::Cluster> m_clusters_b0_input{this};
+   PodioInput<edm4eic::Cluster> m_clusters_ecalendcapp_input{this};
+   PodioInput<edm4eic::Cluster> m_clusters_lfhcal_input{this};
++  PodioInput<edm4eic::Cluster> m_clusters_ecalzdc_input{this};
++  PodioInput<edm4eic::CalorimeterHit> m_hits_hcalzdc_input{this};
++  PodioInput<edm4eic::CalorimeterHit> m_hits_ecalzdc_input{this};
+ 
+   PodioOutput<edm4eic::ReconstructedParticle> m_hcal_neutrals_output{this};
+   PodioOutput<edm4eic::ReconstructedParticle> m_b0_neutrals_output{this};
+@@ -96,6 +99,39 @@ private:
+   ParameterRef<double> m_lambda_pairing_depth_weight{this, "lambdaPairingDepthWeight",
+                                                      config().lambdaPairingDepthWeight};
+ 
++  ParameterRef<bool> m_lambda_pairing_mixed{this, "lambdaPairingMixed", config().lambdaPairingMixed};
++
++  ParameterRef<double> m_lambda_pairing_mixed_photon_depth_factor{
++      this, "lambdaPairingMixedPhotonDepthFactor", config().lambdaPairingMixedPhotonDepthFactor};
++
++  ParameterRef<bool> m_lambda_pairing_external_pair{this, "lambdaPairingExternalPair",
++                                                   config().lambdaPairingExternalPair};
++
++  ParameterRef<double> m_lambda_pairing_external_pair_photon_depth{
++      this, "lambdaPairingExternalPairPhotonDepth", config().lambdaPairingExternalPairPhotonDepth};
++
++  ParameterRef<bool> m_lambda_pairing_crystal{this, "lambdaPairingCrystal", config().lambdaPairingCrystal};
++  ParameterRef<double> m_crystal_cluster_emin{this, "crystalClusterEmin", config().crystalClusterEmin};
++  ParameterRef<double> m_crystal_veto_radius{this, "crystalVetoRadius", config().crystalVetoRadius};
++  ParameterRef<double> m_crystal_column_radius{this, "crystalColumnRadius", config().crystalColumnRadius};
++  ParameterRef<std::vector<double>> m_crystal_gamma_law{this, "crystalGammaLaw", config().crystalGammaLaw};
++  ParameterRef<double> m_crystal_photon_depth{this, "crystalPhotonDepth", config().crystalPhotonDepth};
++  ParameterRef<bool> m_crystal_veto_split{this, "crystalVetoSplit", config().crystalVetoSplit};
++  ParameterRef<double> m_crystal_column_neutron_scale{this, "crystalColumnNeutronScale",
++                                                     config().crystalColumnNeutronScale};
++  ParameterRef<bool> m_crystal_energy_alternative{this, "crystalEnergyAlternative",
++                                                  config().crystalEnergyAlternative};
++  ParameterRef<bool> m_crystal_alt_column_out{this, "crystalAltColumnOut", config().crystalAltColumnOut};
++  ParameterRef<double> m_lambda_pairing_isolation_weight{this, "lambdaPairingIsolationWeight",
++                                                         config().lambdaPairingIsolationWeight};
++  ParameterRef<double> m_lambda_pairing_isolation_length{this, "lambdaPairingIsolationLength",
++                                                         config().lambdaPairingIsolationLength};
++  ParameterRef<bool> m_lambda_pairing_isolation_crystal{this, "lambdaPairingIsolationCrystal",
++                                                        config().lambdaPairingIsolationCrystal};
++  ParameterRef<bool> m_hcal_axis_alternative{this, "hcalAxisAlternative", config().hcalAxisAlternative};
++  ParameterRef<double> m_hcal_axis_radius{this, "hcalAxisRadius", config().hcalAxisRadius};
++  ParameterRef<std::vector<double>> m_hcal_axis_law{this, "hcalAxisLaw", config().hcalAxisLaw};
++
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 
+ public:
+@@ -114,6 +150,9 @@ public:
+             m_clusters_b0_input(),
+             m_clusters_ecalendcapp_input(),
+             m_clusters_lfhcal_input(),
++            m_clusters_ecalzdc_input(),
++            m_hits_hcalzdc_input(),
++            m_hits_ecalzdc_input(),
+ 
+         },
+         {
+diff --git a/src/global/reco/reco.cc b/src/global/reco/reco.cc
+index c11ac1cb..25448fe5 100644
+--- a/src/global/reco/reco.cc
++++ b/src/global/reco/reco.cc
+@@ -241,7 +241,8 @@ void InitPlugin(JApplication* app) {
+ 
+   app->Add(new JOmniFactoryGeneratorT<FarForwardNeutralsReconstruction_factory>(
+       "ReconstructedFarForwardNeutrals",
+-      {"HcalFarForwardZDCClusters", "B0ECalClusters", "EcalEndcapPClusters", "LFHCALClusters"},
++      {"HcalFarForwardZDCClusters", "B0ECalClusters", "EcalEndcapPClusters", "LFHCALClusters",
++       "EcalFarForwardZDCClusters", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits"},
+       {"ReconstructedHcalFarForwardZDCNeutrals", "ReconstructedB0EcalNeutrals",
+        "ReconstructedEcalEndcapPNeutrals", "ReconstructedLFHCALNeutrals"},
+       {.offsetPositionName               = "HcalFarForwardZDC_SiPMonTile_r_pos",
+@@ -263,7 +264,15 @@ void InitPlugin(JApplication* app) {
+        .gammaZMaxOffset                  = -691.4,
+        .gammaMaxLength                   = 150,
+        .gammaMaxWidth                    = 12,
+-       .neutronPositionCentroid          = true},
++       .neutronPositionCentroid          = true,
++       .lambdaPairingMixed               = true,
++       .lambdaPairingExternalPair        = true,
++       // crystal-seeded photons: the photon law fitted on the photon guns D2 + D2c (5-50 GeV) through this chain
++       .lambdaPairingCrystal             = true,
++       .crystalGammaLaw                  = {1.962, 47.47, -0.881},
++       .crystalPhotonDepth               = -10.0,
++       .crystalVetoSplit                 = true,
++       .crystalEnergyAlternative         = true},
+       app));
+ 
+   app->Add(new JOmniFactoryGeneratorT<LambdaReconstruction_factory>(

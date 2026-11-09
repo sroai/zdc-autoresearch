@@ -1,0 +1,168 @@
+diff --color -ruN a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+@@ -500,7 +500,9 @@
+       // the photons' depth in the ZDC (x1, x2 are proton-frame positions; a constant offset does not change the ranking)
+       const double photon_depth = (x1[2] + x2[2] - 2 * m_zZDC) / 100.0;
+       const double score        = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth +
+-                           m_cfg.lambdaPairingPhotonDepthWeight * photon_depth;
++                           m_cfg.lambdaPairingPhotonDepthWeight * photon_depth +
++                           isolationTerm(clusters, c1.getPosition(), false) +
++                           isolationTerm(clusters, c2.getPosition(), false);
+       if (score < best_score) {
+         best_score = score;
+         best       = {static_cast<int>(cand[ia]), static_cast<int>(cand[ib])};
+@@ -616,7 +618,8 @@
+         const double depth = z_near / L + std::log(L * std::max(1.0 - std::exp(-m_zZDC / L), 1e-12));
+         const double photon_depth = m_cfg.lambdaPairingMixedPhotonDepthFactor * (x1[2] - m_zZDC) / 100.0;
+         const double score        = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth +
+-                             m_cfg.lambdaPairingPhotonDepthWeight * photon_depth;
++                             m_cfg.lambdaPairingPhotonDepthWeight * photon_depth +
++                             isolationTerm(clusters, c1.getPosition(), false);
+         if (score < best_score) {
+           best_score = score;
+           best       = {static_cast<int>(cand[ia]), kMixed};
+@@ -851,6 +854,33 @@
+   return out;
+ }
+ 
++double FarForwardNeutralsReconstruction::isolationTerm(const edm4eic::ClusterCollection& clusters,
++                                                       const edm4hep::Vector3f& pos, bool crystal) const {
++  if (m_cfg.lambdaPairingIsolationWeight == 0.0 || clusters.empty()) {
++    return 0.0;
++  }
++  std::size_t lead = 0;
++  for (std::size_t k = 1; k < clusters.size(); ++k) {
++    if (clusters[k].getEnergy() > clusters[lead].getEnergy()) {
++      lead = k;
++    }
++  }
++  const double ca = std::cos(-m_cfg.globalToProtonRotation);
++  const double sa = std::sin(-m_cfg.globalToProtonRotation);
++  auto toProton   = [&](const edm4hep::Vector3f& p) -> std::array<double, 3> {
++    return {p.x * ca + p.z * sa, p.y, -p.x * sa + p.z * ca};
++  };
++  const auto xl = toProton(clusters[lead].getPosition());
++  auto x        = toProton(pos);
++  if (crystal && x[2] > 0.0) {
++    const double f = xl[2] / x[2];
++    x[0] *= f;
++    x[1] *= f;
++  }
++  const double d = std::hypot(x[0] - xl[0], x[1] - xl[1]);
++  return m_cfg.lambdaPairingIsolationWeight * std::exp(-d / m_cfg.lambdaPairingIsolationLength);
++}
++
+ FarForwardNeutralsReconstruction::CrystalChoice FarForwardNeutralsReconstruction::chooseCrystalHypothesis(
+     const edm4eic::ClusterCollection& clusters, const std::vector<std::size_t>& cand,
+     const std::vector<CrystalPhoton>& crystals, const std::vector<AltEnergy>& alts,
+@@ -1010,6 +1040,11 @@
+     return o;
+   };
+ 
++  // the isolation term of a crystal photon (lambdaPairingIsolationCrystal)
++  auto iso_crystal = [&](const CrystalPhoton& c) {
++    return m_cfg.lambdaPairingIsolationCrystal ? isolationTerm(clusters, c.position, true) : 0.0;
++  };
++
+   CrystalChoice best;
+   const double wpd = m_cfg.lambdaPairingPhotonDepthWeight;
+   for (std::size_t ka = 0; ka < crystals.size(); ++ka) {
+@@ -1024,7 +1059,8 @@
+       for (const auto& [e2, alt] : options(i)) {
+         const auto [En, xn] = neutron({static_cast<int>(i)}, {&c1}, {alt});
+         const double score  = fit(c1.energy, x1, e2, x2, En, xn, false) +
+-                             wpd * ((x2[2] - m_zZDC) / 100.0 + m_cfg.crystalPhotonDepth);
++                             wpd * ((x2[2] - m_zZDC) / 100.0 + m_cfg.crystalPhotonDepth) +
++                             isolationTerm(clusters, clusters[i].getPosition(), false) + iso_crystal(c1);
+         if (score < best.score) {
+           best = {score, static_cast<int>(ka), -1, static_cast<int>(i), -1};
+           if (alt != nullptr) {
+@@ -1039,7 +1075,7 @@
+       const auto& c2      = crystals[kb];
+       const auto [En, xn] = neutron({}, {&c1, &c2});
+       const double score  = fit(c1.energy, x1, c2.energy, toProton(c2.position), En, xn, false) +
+-                           wpd * 2 * m_cfg.crystalPhotonDepth;
++                           wpd * 2 * m_cfg.crystalPhotonDepth + iso_crystal(c1) + iso_crystal(c2);
+       if (score < best.score) {
+         best = {score, static_cast<int>(ka), static_cast<int>(kb), -1, -1};
+       }
+@@ -1050,7 +1086,8 @@
+       for (std::size_t ke = 0; ke < external->size(); ++ke) {
+         const auto& ext    = (*external)[ke];
+         const double score = fit(c1.energy, x1, ext.energy, toProton(ext.position), En, xn, true) +
+-                             wpd * m_cfg.lambdaPairingMixedPhotonDepthFactor * m_cfg.crystalPhotonDepth;
++                             wpd * m_cfg.lambdaPairingMixedPhotonDepthFactor * m_cfg.crystalPhotonDepth +
++                             iso_crystal(c1);
+         if (score < best.score) {
+           best = {score, static_cast<int>(ka), -1, -1, static_cast<int>(ke)};
+         }
+@@ -1080,7 +1117,9 @@
+           }
+           const auto [En, xn] = neutron({static_cast<int>(i), static_cast<int>(j)}, {}, {a1, a2});
+           const double score =
+-              fit(e1, x1, e2, x2, En, xn, false) + wpd * (x1[2] + x2[2] - 2 * m_zZDC) / 100.0;
++              fit(e1, x1, e2, x2, En, xn, false) + wpd * (x1[2] + x2[2] - 2 * m_zZDC) / 100.0 +
++              isolationTerm(clusters, clusters[i].getPosition(), false) +
++              isolationTerm(clusters, clusters[j].getPosition(), false);
+           if (score < best.score) {
+             best = {score, -1, -1, static_cast<int>(i), -1, static_cast<int>(j), a1 ? a1->energy : -1.0,
+                     a2 ? a2->energy : -1.0, a1 ? static_cast<int>(a1->crystal) : -1, a2 ? static_cast<int>(a2->crystal) : -1};
+@@ -1096,7 +1135,8 @@
+       for (std::size_t ke = 0; ke < external->size(); ++ke) {
+         const auto& ext    = (*external)[ke];
+         const double score = fit(a.energy, x1, ext.energy, toProton(ext.position), En, xn, true) +
+-                             wpd * m_cfg.lambdaPairingMixedPhotonDepthFactor * (x1[2] - m_zZDC) / 100.0;
++                             wpd * m_cfg.lambdaPairingMixedPhotonDepthFactor * (x1[2] - m_zZDC) / 100.0 +
++                             isolationTerm(clusters, clusters[a.hcal].getPosition(), false);
+         if (score < best.score) {
+           best = {score, -1, -1, static_cast<int>(a.hcal), static_cast<int>(ke), -1, a.energy, -1.0, static_cast<int>(a.crystal), -1};
+         }
+diff --color -ruN a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -95,6 +95,14 @@
+   /** When a tagged Hcal photon carries the crystal law's energy, the part of its Hcal column beyond its own cluster
+       (column x crystalColumnNeutronScale minus the cluster's energy) leaves the neutron: that energy is in the photon */
+   bool crystalAltColumnOut = false;
++  /** Isolation term of the Lambda pairing: every tagged Hcal photon of a hypothesis adds
++      lambdaPairingIsolationWeight * exp(-d / lambdaPairingIsolationLength) to its score, d the transverse distance (proton
++      frame, mm) to the most energetic Hcal cluster of the event (the neutron core, where the neutron's shower fragments
++      sit); with lambdaPairingIsolationCrystal crystal photons too, at their position projected to that cluster's depth.
++      Weight 0 switches it off. */
++  double lambdaPairingIsolationWeight = 0.0;
++  double lambdaPairingIsolationLength = 60.0; // mm
++  bool lambdaPairingIsolationCrystal  = false;
+ };
+ 
+ } // namespace eicrecon
+diff --color -ruN a/src/algorithms/reco/FarForwardNeutralsReconstruction.h b/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+@@ -191,6 +191,10 @@
+                                              double clusterEmin,
+                                              const std::vector<ExternalPhoton>* external = nullptr,
+                                              double* best_score_out                      = nullptr) const;
++  /** The isolation term of a photon at `pos` (lab frame): lambdaPairingIsolationWeight * exp(-d / length), d the transverse
++      distance in the proton frame to the most energetic of `clusters`; a crystal photon's position is first projected
++      along its line from the IP to that cluster's depth. 0 when the weight is 0 or there is no cluster. */
++  double isolationTerm(const edm4eic::ClusterCollection& clusters, const edm4hep::Vector3f& pos, bool crystal) const;
+   double m_zZDC{35800}; // mm, the ZDC depth (offsetPositionName), as LambdaReconstruction's zMax
+ };
+ 
+diff --color -ruN a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -121,6 +121,12 @@
+   ParameterRef<bool> m_crystal_energy_alternative{this, "crystalEnergyAlternative",
+                                                   config().crystalEnergyAlternative};
+   ParameterRef<bool> m_crystal_alt_column_out{this, "crystalAltColumnOut", config().crystalAltColumnOut};
++  ParameterRef<double> m_lambda_pairing_isolation_weight{this, "lambdaPairingIsolationWeight",
++                                                         config().lambdaPairingIsolationWeight};
++  ParameterRef<double> m_lambda_pairing_isolation_length{this, "lambdaPairingIsolationLength",
++                                                         config().lambdaPairingIsolationLength};
++  ParameterRef<bool> m_lambda_pairing_isolation_crystal{this, "lambdaPairingIsolationCrystal",
++                                                        config().lambdaPairingIsolationCrystal};
+ 
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 

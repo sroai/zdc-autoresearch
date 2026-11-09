@@ -80,4 +80,14 @@ purge reco/T6_z5_switch1 "Z5 switch proof (file 0001); result in the runlog"
 purge reco/T6_z6_switch0 "Z6 switch proof (file 0001); result in the runlog"
 purge reco/T6_z6_switch1 "Z6 switch proof (file 0001); result in the runlog"
 purge reco/T5_crystal_probe "Phase 5 crystal probe; Phase 6 Step 0 read MSF6_Y9's rec hits instead"
+# Phase 6 run 2 (2026-11-09): Z5 is no longer the base (D-user-44, Z6); its scores, 210 / 463 / 476 JSON stay. Switch proofs.
+drop Z5_crystal_energy_alt "Phase 6 try, ACCEPTED, then the base became Z6 (D-user-44); scores in msf-*.json, t-resolution-*.json"
+purge reco/T7_z7_switch0 "Z7 switch proof (file 0001, off = Z6 identical); result in the runlog"
+purge reco/T7_z7_switch1 "Z7 switch proof (file 0001, on changes 35 of 500 events); result in the runlog"
+# Phase 6 run 2 end (2026-11-09T15:23Z): checkpoint 2 written; superseded tries (ROOT only; JSON, npz, scores stay). Kept: Z8 (current best, D6s + D6h), MSF6_Y9 (base row / F2 reference), CTL6_R0_crys, CAL6_D2_Y9 + CAL6_D3_Z6 (gun inputs of 477 / 480 / 481).
+drop Z6_alt_column_out "Phase 6 base by D-user-44, superseded by Z7 and Z8; D6s / D6h scores, t-resolution JSON stay"
+drop Z7_isolation "Phase 6 try ACCEPTED, superseded by Z8; scores in msf-*.json"
+drop CP6_1_Z5_D4 "checkpoint 1 D4, headline.csv written"
+purge reco/T8_z8_switch0 "Z8 switch proof (file 0001, off = Z7 identical); result in the runlog"
+purge reco/T8_z8_switch1 "Z8 switch proof (file 0001, on changes 66 of 500 events); result in the runlog"
 df -h /data | tail -1
