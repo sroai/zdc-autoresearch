@@ -1,0 +1,97 @@
+--- a/scripts/410_truth_match.py
++++ b/scripts/410_truth_match.py
+@@ -143,12 +143,14 @@
+             continue
+         we, re_, si = ak.to_numpy(w[ev]), ak.to_numpy(rec[ev]), ak.to_numpy(sim[ev])
+         energies = ak.to_numpy(cl_e[ev])
+-        # cluster index -> the neutral built from it (the neutrals factory sums every hadronic cluster into one neutron)
++        # cluster index -> the neutral built from it (the neutrals factory sums every hadronic cluster into one neutron).
++        # The ZDC runs with associateAllClustersToNeutron: the neutron lists every cluster, photon clusters included,
++        # so the photon neutrals are mapped last and a photon neutral wins its cluster (Q14, D-user-29).
+         neutral_of = {}
+         if have_neutrals:
+             npdg = ak.to_numpy(neutral_pdg[ev]); ncl = ak.to_numpy(neutral_cl[ev])
+             nb, ne = ak.to_numpy(neutral_cl_begin[ev]), ak.to_numpy(neutral_cl_end[ev])
+-            for j in range(len(npdg)):
++            for j in sorted(range(len(npdg)), key=lambda j: npdg[j] == tm.photon_pdg):
+                 for k in ncl[nb[j]:ne[j]].tolist():
+                     neutral_of[k] = j
+         roles = ["n", "g1", "g2"] if len(idx) == 3 else (["g1", "g2"] if len(idx) == 2 else ["p"])
+@@ -172,26 +174,34 @@
+                          float(cl_x[ev][cl]), float(cl_y[ev][cl]), float(cl_z[ev][cl]), n_pdg == tm.photon_pdg,
+                          cl, int(mask.sum()), n_e, n_px, n_py, n_pz, n_pdg, float(contrib.sum())) + truth)
+         if "reco" in lambdas and len(idx) == 3:
+-            lam_rows.append(match_lambdas(ev, idx, lambdas, we, re_, si, ncl if have_neutrals else None,
++            lam_rows.append(match_lambdas(ev, idx, lambdas, we, re_, si, energies, ncl if have_neutrals else None,
+                                           nb if have_neutrals else None, ne if have_neutrals else None,
+                                           float(true_p["vertex.z"][ev][idx[0]]), tm, win_c, win_h))
+     return len(targets), rows, lam_rows
+ 
+ 
+-def match_lambdas(ev, idx, lambdas, we, re_, si, ncl, nb, ne, true_decay_z, tm, win_c, win_h):
++def match_lambdas(ev, idx, lambdas, we, re_, si, energies, ncl, nb, ne, true_decay_z, tm, win_c, win_h):
+     """One Λ row for an event: any candidate in the mass window; a truth-matched candidate in the window
+     (its neutron daughter holds a cluster with purity ≥ purity_min for the true neutron, and its two photon
+     daughters hold clusters with purity ≥ purity_min for the two distinct true photons; every daughter must
+-    come from the ZDC neutrals); the first truth-matched candidate's mass and vertex z; any truth-chain Λ."""
++    come from the ZDC neutrals); the first truth-matched candidate's mass and vertex z; any truth-chain Λ;
++    matched_best: a truth-matched candidate whose two photon daughters each hold that photon's best-matched
++    cluster (largest weight × energy), so a Λ built from a photon fragment does not count (Q15, D-user-30)."""
+     def purity_of(cluster, particle):
+         m = (re_ == cluster) & (si == particle)
+         return float(we[m].max()) if m.any() else 0.0
+ 
++    def best_cluster(particle):
++        m = si == particle
++        return int(re_[m][np.argmax(we[m] * energies[re_[m]])]) if m.any() else -1
++
+     lam = lambdas["reco"]
+     mass = ak.to_numpy(lam["mass"][ev])
+     in_window = np.abs(mass - win_c) < win_h
+     matched, m_mass, m_vz = False, np.nan, np.nan
++    matched_best = False
+     i_n, i_g1, i_g2 = idx
++    best_g1, best_g2 = best_cluster(i_g1), best_cluster(i_g2)
+     for k in np.flatnonzero(in_window):
+         b, e = int(lam["begin"][ev][k]), int(lam["end"][ev][k])
+         parts, cids = ak.to_numpy(lam["index"][ev][b:e]), ak.to_numpy(lam["cid"][ev][b:e])
+@@ -202,13 +212,18 @@
+         g_a = [max((purity_of(cl, g) for cl in clusters[1]), default=0.0) for g in (i_g1, i_g2)]
+         g_b = [max((purity_of(cl, g) for cl in clusters[2]), default=0.0) for g in (i_g1, i_g2)]
+         g_ok = (g_a[0] >= tm.purity_min and g_b[1] >= tm.purity_min) or (g_a[1] >= tm.purity_min and g_b[0] >= tm.purity_min)
+-        if n_ok and g_ok:
++        if n_ok and g_ok and not matched:
+             matched, m_mass, m_vz = True, float(mass[k]), float(lam["vz"][ev][k])
++        if n_ok and g_ok and not matched_best:
++            hold = lambda cls, g, b: b in cls and purity_of(b, g) >= tm.purity_min
++            matched_best = (hold(clusters[1], i_g1, best_g1) and hold(clusters[2], i_g2, best_g2)) or \
++                           (hold(clusters[1], i_g2, best_g2) and hold(clusters[2], i_g1, best_g1))
++        if matched and matched_best:
+             break
+     any_truth = False
+     if "truth" in lambdas:
+         any_truth = bool((np.abs(ak.to_numpy(lambdas["truth"]["mass"][ev]) - win_c) < win_h).any())
+-    return (ev, bool(in_window.any()), matched, m_mass, m_vz, true_decay_z, any_truth)
++    return (ev, bool(in_window.any()), matched, m_mass, m_vz, true_decay_z, any_truth, matched_best)
+ 
+ 
+ def main():
+@@ -260,13 +275,16 @@
+             per["events"] = int(nev)
+             if lam_rows:
+                 lt = np.array(lam_rows, dtype=[("event", "i4"), ("any", "?"), ("matched", "?"), ("mass", "f4"),
+-                                               ("vz", "f4"), ("true_decay_z", "f4"), ("any_truthchain", "?")])
++                                               ("vz", "f4"), ("true_decay_z", "f4"), ("any_truthchain", "?"),
++                                               ("matched_best", "?")])
+                 np.savez_compressed(outdir / f"{f.stem}.lambda.npz", table=lt)
+                 # denominators: generated events (every D4 event holds one accepted Λ → n π⁰ → n γ γ)
+                 per["S4a_tm_eff"] = float(lt["matched"].sum() / nev)
+                 per["S4a_any_eff"] = float(lt["any"].sum() / nev)
+                 per["S4a_Rt_eff"] = float(lt["any_truthchain"].sum() / nev)
+-                summary.setdefault("lambda_flags", {})[str(p)] = {"events": lt["event"].tolist(), "matched": lt["matched"].tolist()}
++                per["S4a_tm_best_eff"] = float(lt["matched_best"].sum() / nev)
++                summary.setdefault("lambda_flags", {})[str(p)] = {"events": lt["event"].tolist(), "matched": lt["matched"].tolist(),
++                                                                 "matched_best": lt["matched_best"].tolist()}
+             summary["per_momentum"][str(p)] = per
+             # per-event and per-particle flags for the paired McNemar tests of 400_scoreboard.py --compare
+             summary["event_flags"][str(p)] = {"events": events.tolist(), "all_separated": all_sep.tolist(),

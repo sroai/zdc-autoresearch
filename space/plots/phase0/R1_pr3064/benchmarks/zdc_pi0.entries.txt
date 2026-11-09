@@ -1,0 +1,8 @@
+ok   zdc_pi0        50 GeV  events with 2 ZDC clusters=69
+ok   zdc_pi0        60 GeV  events with 2 ZDC clusters=29
+ok   zdc_pi0        70 GeV  events with 2 ZDC clusters=19
+ok   zdc_pi0        80 GeV  events with 2 ZDC clusters=7
+ok   zdc_pi0       100 GeV  events with 2 ZDC clusters=7
+ok   zdc_pi0       130 GeV  events with 2 ZDC clusters=5
+ok   zdc_pi0       160 GeV  events with 2 ZDC clusters=3
+0 PDF(s) in space/plots/phase0/R1_pr3064/benchmarks/zdc_pi0

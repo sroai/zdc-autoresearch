@@ -1,0 +1,279 @@
+diff --git a/src/algorithms/calorimetry/ImagingTopoCluster.cc b/src/algorithms/calorimetry/ImagingTopoCluster.cc
+index 615e9d75..5d3a57c3 100644
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.cc
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.cc
+@@ -25,7 +25,9 @@
+ #include <Evaluator/DD4hepUnits.h>
+ #include <edm4hep/Vector3f.h>
+ #include <edm4hep/utils/vector_utils.h>
++#include <algorithm>
+ #include <cmath>
++#include <list>
+ #include <cstdlib>
+ #include <stdexcept>
+ #include <tuple>
+@@ -81,6 +83,8 @@ void ImagingTopoCluster::init() {
+   minClusterHitEdep    = m_cfg.minClusterHitEdep / dd4hep::GeV;
+   minClusterCenterEdep = m_cfg.minClusterCenterEdep / dd4hep::GeV;
+   minClusterEdep       = m_cfg.minClusterEdep / dd4hep::GeV;
++  splitSeedEdep        = m_cfg.splitSeedEdep / dd4hep::GeV;
++  splitMinRegionEdep   = m_cfg.splitMinRegionEdep / dd4hep::GeV;
+ 
+   // same layer clustering parameters
+   switch (m_cfg.sameLayerMode) {
+@@ -258,10 +262,149 @@ void ImagingTopoCluster::process(const Input& input, const Output& output) const
+     if (energy < minClusterEdep) {
+       continue;
+     }
+-    auto pcl = proto->create();
+-    for (std::size_t idx : group) {
+-      pcl.addToHits((*hits)[idx]);
+-      pcl.addToWeights(1);
++    // a saved group is split at its local maxima when splitSeedEdep > 0; every region is kept
++    std::vector<std::list<std::size_t>> regions;
++    if (splitSeedEdep > 0.) {
++      split_group(*hits, group, regions);
++    } else {
++      regions.push_back(group);
++    }
++    for (const auto& region : regions) {
++      auto pcl = proto->create();
++      for (std::size_t idx : region) {
++        pcl.addToHits((*hits)[idx]);
++        pcl.addToWeights(1);
++      }
++    }
++  }
++}
++
++void ImagingTopoCluster::split_group(const edm4eic::CalorimeterHitCollection& hits,
++                                     const std::list<std::size_t>& group,
++                                     std::vector<std::list<std::size_t>>& regions) const {
++  const std::vector<std::size_t> v(group.begin(), group.end());
++  const std::size_t n = v.size();
++  auto energy         = [&](std::size_t i) { return hits[v[i]].getEnergy(); };
++  // more energetic, ties broken by position in the group, so that the order is total
++  auto above = [&](std::size_t i, std::size_t j) {
++    return energy(i) > energy(j) || (energy(i) == energy(j) && i < j);
++  };
++  std::vector<std::vector<std::size_t>> nb(n);
++  for (std::size_t i = 0; i < n; ++i) {
++    for (std::size_t j = i + 1; j < n; ++j) {
++      if (is_neighbour(hits[v[i]], hits[v[j]])) {
++        nb[i].push_back(j);
++        nb[j].push_back(i);
++      }
++    }
++  }
++  // seeds: local maxima above the seed energy
++  std::vector<int> region(n, -1);
++  int nseed = 0;
++  for (std::size_t i = 0; i < n; ++i) {
++    if (energy(i) < splitSeedEdep) {
++      continue;
++    }
++    bool maximum = true;
++    for (std::size_t j : nb[i]) {
++      if (above(j, i)) {
++        maximum = false;
++        break;
++      }
++    }
++    if (maximum) {
++      region[i] = nseed++;
++    }
++  }
++  if (nseed <= 1) {
++    regions.push_back(group);
++    return;
++  }
++  // grow the regions in decreasing hit energy: a hit joins the region of its most energetic assigned neighbour;
++  // passes repeat for hits whose more energetic neighbours were not yet assigned
++  std::vector<std::size_t> order(n);
++  for (std::size_t i = 0; i < n; ++i) {
++    order[i] = i;
++  }
++  std::sort(order.begin(), order.end(), above);
++  bool progress = true;
++  while (progress) {
++    progress = false;
++    for (std::size_t i : order) {
++      if (region[i] >= 0) {
++        continue;
++      }
++      int best_j = -1;
++      for (std::size_t j : nb[i]) {
++        if (region[j] >= 0 && (best_j < 0 || above(j, static_cast<std::size_t>(best_j)))) {
++          best_j = static_cast<int>(j);
++        }
++      }
++      if (best_j >= 0) {
++        region[i] = region[best_j];
++        progress  = true;
++      }
++    }
++  }
++  for (std::size_t i = 0; i < n; ++i) {
++    // a hit no seed reaches (impossible in a connected group) stays with the first region
++    if (region[i] < 0) {
++      region[i] = 0;
++    }
++  }
++  // regions below splitMinRegionEdep merge, smallest first, into the neighbouring region that holds the most
++  // energetic hit adjacent to them
++  if (splitMinRegionEdep > 0.) {
++    std::vector<double> renergy(nseed, 0.);
++    for (std::size_t i = 0; i < n; ++i) {
++      renergy[region[i]] += energy(i);
++    }
++    std::vector<bool> alive(nseed, true);
++    int nalive = nseed;
++    while (nalive > 1) {
++      int small = -1;
++      for (int r = 0; r < nseed; ++r) {
++        if (alive[r] && renergy[r] < splitMinRegionEdep && (small < 0 || renergy[r] < renergy[small])) {
++          small = r;
++        }
++      }
++      if (small < 0) {
++        break;
++      }
++      int target  = -1;
++      double best = -1.;
++      for (std::size_t i = 0; i < n; ++i) {
++        if (region[i] != small) {
++          continue;
++        }
++        for (std::size_t j : nb[i]) {
++          if (region[j] != small && energy(j) > best) {
++            best   = energy(j);
++            target = region[j];
++          }
++        }
++      }
++      if (target < 0) {
++        break; // isolated (cannot happen in a connected group)
++      }
++      for (std::size_t i = 0; i < n; ++i) {
++        if (region[i] == small) {
++          region[i] = target;
++        }
++      }
++      renergy[target] += renergy[small];
++      renergy[small] = 0.;
++      alive[small]   = false;
++      --nalive;
++    }
++  }
++  std::vector<std::list<std::size_t>> out(nseed);
++  for (std::size_t i = 0; i < n; ++i) {
++    out[region[i]].push_back(v[i]);
++  }
++  for (auto& r : out) {
++    if (!r.empty()) {
++      regions.push_back(std::move(r));
+     }
+   }
+ }
+diff --git a/src/algorithms/calorimetry/ImagingTopoCluster.h b/src/algorithms/calorimetry/ImagingTopoCluster.h
+index 1d7654b0..343c7f3b 100644
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.h
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.h
+@@ -65,6 +65,8 @@ private:
+   double minClusterHitEdep{0};
+   double minClusterCenterEdep{0};
+   double minClusterEdep{0};
++  double splitSeedEdep{0};
++  double splitMinRegionEdep{0};
+ 
+ public:
+   void init();
+@@ -74,6 +76,10 @@ private:
+   // helper function to group hits
+   bool is_neighbour(const edm4eic::CalorimeterHit& h1, const edm4eic::CalorimeterHit& h2) const;
+ 
++  // split one group at its local energy maxima (splitSeedEdep > 0); appends one hit list per region
++  void split_group(const edm4eic::CalorimeterHitCollection& hits, const std::list<std::size_t>& group,
++                   std::vector<std::list<std::size_t>>& regions) const;
++
+   // grouping function with Breadth-First Search
+   // note: template to allow Compare only known in local scope of caller
+   template <typename Compare>
+diff --git a/src/algorithms/calorimetry/ImagingTopoClusterConfig.h b/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+index 3a8fb622..d323c643 100644
+--- a/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
++++ b/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+@@ -53,6 +53,12 @@ struct ImagingTopoClusterConfig {
+   double minClusterEdep = 0.5 * dd4hep::MeV;
+   // minimum number of hits (to save this cluster)
+   std::size_t minClusterNhits = 10;
++  // split each saved group at its local energy maxima: hits of at least splitSeedEdep with no more energetic
++  // neighbour seed one cluster each, and every other hit joins the cluster of its most energetic neighbour,
++  // in decreasing hit energy (a watershed on the neighbour graph). 0 disables the split (stock behaviour).
++  double splitSeedEdep = 0.;
++  // split regions below this energy merge into their neighbour (0: every region is kept)
++  double splitMinRegionEdep = 0.;
+ };
+ 
+ std::istream& operator>>(std::istream& in, ImagingTopoClusterConfig::ELayerMode& layerMode) {
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+index 36c6feb0..dbca5f1a 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+@@ -164,7 +164,16 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+     // Lambda pairing: of the tagged clusters keep the pair that best fits Lambda -> n gamma gamma; the other
+     // tagged clusters stay with the neutron. Without a fittable pair every tagged cluster stays a photon.
+     if (lambdaPairing && canDetectNeutrons && cand.size() > 2) {
+-      const auto [a, b] = chooseLambdaPhotonPair(*clusters, cand, gammaScaleCoeff, neutronScaleCoeff,
++      // pair only the most energetic tagged clusters when lambdaPairingMaxCandidates > 0
++      std::vector<std::size_t> pool = cand;
++      if (m_cfg.lambdaPairingMaxCandidates > 0 &&
++          pool.size() > static_cast<std::size_t>(m_cfg.lambdaPairingMaxCandidates)) {
++        std::ranges::sort(pool, [&](std::size_t x, std::size_t y) {
++          return (*clusters)[x].getEnergy() > (*clusters)[y].getEnergy();
++        });
++        pool.resize(m_cfg.lambdaPairingMaxCandidates);
++      }
++      const auto [a, b] = chooseLambdaPhotonPair(*clusters, pool, gammaScaleCoeff, neutronScaleCoeff,
+                                                  gammaCorr, neutronCorr, clusterEmin);
+       if (a >= 0 && b >= 0) {
+         cand = {static_cast<std::size_t>(a), static_cast<std::size_t>(b)};
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+index c3abef3e..1b5e3198 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -46,6 +46,7 @@ struct FarForwardNeutralsReconstructionConfig {
+   double lambdaPairingPi0Window     = 0.1;  // relative, as LambdaReconstruction's pi0Window
+   double lambdaPairingLambdaSigma   = 0.04; // GeV, width of the Lambda-mass term (the mass resolution)
+   double lambdaPairingDepthWeight   = 1.5;  // weight of the decay-depth term
++  int lambdaPairingMaxCandidates    = 0;    // pair only the N most energetic tagged clusters (0: all)
+   double lambdaCTau                 = 78.9; // mm, the Lambda's c*tau (PDG)
+ };
+ 
+diff --git a/src/factories/calorimetry/ImagingTopoCluster_factory.h b/src/factories/calorimetry/ImagingTopoCluster_factory.h
+index 0aa9bd39..165f65a9 100644
+--- a/src/factories/calorimetry/ImagingTopoCluster_factory.h
++++ b/src/factories/calorimetry/ImagingTopoCluster_factory.h
+@@ -46,6 +46,8 @@ private:
+   ParameterRef<double> m_mcced{this, "minClusterCenterEdep", config().minClusterCenterEdep};
+   ParameterRef<double> m_mced{this, "minClusterEdep", config().minClusterEdep};
+   ParameterRef<std::size_t> m_mcnh{this, "minClusterNhits", config().minClusterNhits};
++  ParameterRef<double> m_ssed{this, "splitSeedEdep", config().splitSeedEdep};
++  ParameterRef<double> m_smre{this, "splitMinRegionEdep", config().splitMinRegionEdep};
+ 
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 
+diff --git a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+index 5bef43f1..7d2d0f58 100644
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -90,6 +90,9 @@ private:
+   ParameterRef<double> m_lambda_pairing_depth_weight{this, "lambdaPairingDepthWeight",
+                                                      config().lambdaPairingDepthWeight};
+ 
++  ParameterRef<int> m_lambda_pairing_max_candidates{this, "lambdaPairingMaxCandidates",
++                                                    config().lambdaPairingMaxCandidates};
++
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 
+ public:

@@ -1,0 +1,7 @@
+ok   zdc_neutron    20 GeV  ZDC neutrals PDG 2112=978  ZDC clusters=1386
+ok   zdc_neutron    50 GeV  ZDC neutrals PDG 2112=994  ZDC clusters=1658
+ok   zdc_neutron   100 GeV  ZDC neutrals PDG 2112=998  ZDC clusters=1835
+ok   zdc_neutron   150 GeV  ZDC neutrals PDG 2112=999  ZDC clusters=1986
+ok   zdc_neutron   200 GeV  ZDC neutrals PDG 2112=1000  ZDC clusters=2084
+ok   zdc_neutron   275 GeV  ZDC neutrals PDG 2112=999  ZDC clusters=2175
+6 PDF(s) in /home/romanov/dev/zdc-autoresearch/space/plots/phase2/E03_clEdep20/benchmarks/zdc_neutron

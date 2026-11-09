@@ -1,0 +1,55 @@
+--- a/src/detectors/ZDC/ZDC.cc
++++ b/src/detectors/ZDC/ZDC.cc
+@@ -190,7 +190,7 @@
+       "HcalFarForwardZDCImagingProtoClusters", {"HcalFarForwardZDCSubcellHits"},
+       {"HcalFarForwardZDCImagingProtoClusters"},
+       {
+-          .neighbourLayersRange = 3,
++          .neighbourLayersRange = 1,
+           .sameLayerDistXY      = {0.3 * side_length, 0.3 * side_length},
+           .diffLayerDistXY      = {0.3 * side_length, 0.3 * side_length},
+           .sameLayerMode        = eicrecon::ImagingTopoClusterConfig::ELayerMode::xy,
+@@ -198,8 +198,14 @@
+           .sectorDist           = 10.0 * dd4hep::cm,
+           .minClusterHitEdep    = 315.0 * dd4hep::keV,
+           .minClusterCenterEdep = 5 * dd4hep::MeV,
+-          .minClusterEdep       = 50.0 * dd4hep::MeV,
++          .minClusterEdep       = 20.0 * dd4hep::MeV,
+           .minClusterNhits      = 2,
++          // photon cores: maxima of at least 5 MeV in the first 4 layers, 50 mm apart, split from the rest
++          .coreSplitSeedEdep  = 5 * dd4hep::MeV,
++          .coreSplitMaxLayer  = 4,
++          .coreSplitMinDistXY = 50 * dd4hep::mm,
++          // core regions keep their first 5 layers; deeper hits join the shared deep region
++          .coreSplitCoreMaxLayer = 5,
+       },
+       app));
+ 
+--- a/src/global/reco/reco.cc
++++ b/src/global/reco/reco.cc
+@@ -245,8 +245,8 @@
+       {"ReconstructedHcalFarForwardZDCNeutrals", "ReconstructedB0EcalNeutrals",
+        "ReconstructedEcalEndcapPNeutrals", "ReconstructedLFHCALNeutrals"},
+       {.offsetPositionName               = "HcalFarForwardZDC_SiPMonTile_r_pos",
+-       .neutronScaleCorrCoeffHcalZDC     = {16.65, 0.66},
+-       .gammaScaleCorrCoeffHcalZDC       = {2.7, 1.27},
++       .neutronScaleCorrCoeffHcalZDC     = {6.214, 0.740},
++       .gammaScaleCorrCoeffHcalZDC       = {3.952, 0.938},
+        .neutronScaleCorrCoeffLFHCAL      = {2.55, 0.95},
+        .gammaScaleCorrCoeffLFHCAL        = {0., 0.},
+        .neutronScaleCorrCoeffB0Ecal      = {0., 0.},
+@@ -258,9 +258,12 @@
+        .clusterEminEcalEndcapP           = 1.0,
+        .clusterEminLFHCAL                = 7.0,
+        .globalToProtonRotation           = -0.025,
+-       .gammaZMaxOffset                  = 400,
++       // photon candidates start within 225 mm of the ZDC front face: the offset is added to
++       // HcalFarForwardZDC_SiPMonTile_r_pos, the ZDC centre (front face + half the 1832.7 mm length)
++       .gammaZMaxOffset                  = -691.4,
+        .gammaMaxLength                   = 150,
+-       .gammaMaxWidth                    = 12},
++       .gammaMaxWidth                    = 12,
++       .neutronPositionCentroid          = true},
+       app));
+ 
+   app->Add(new JOmniFactoryGeneratorT<LambdaReconstruction_factory>(

@@ -1,0 +1,16 @@
+/work/scripts/700_benchmarks/zdc_pi0_plots.py:86: OptimizeWarning: Covariance of the parameters could not be estimated
+  coeff, var_matrix = curve_fit(fnc, pvals, resvals, p0=(1,),
+/work/scripts/700_benchmarks/zdc_pi0_plots.py:165: OptimizeWarning: Covariance of the parameters could not be estimated
+  coeff, var_matrix = curve_fit(fnc, pvals, resvals, p0=(1,),
+Traceback (most recent call last):
+  File "/work/scripts/700_benchmarks/zdc_pi0_plots.py", line 240, in <module>
+    coeff, var_matrix = curve_fit(fnc, pvals, resvals, p0=(1,1),
+                        ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                     sigma=dresvals, maxfev=10000)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/local/lib/python3.13/site-packages/scipy/optimize/_minpack_py.py", line 1024, in curve_fit
+    res = leastsq(func, p0, Dfun=jac, full_output=True, **kwargs)
+  File "/opt/local/lib/python3.13/site-packages/scipy/optimize/_minpack_py.py", line 430, in leastsq
+    raise TypeError(f"Improper input: func input vector length N={n} must"
+                    f" not exceed func output vector length M={m}")
+TypeError: Improper input: func input vector length N=2 must not exceed func output vector length M=1

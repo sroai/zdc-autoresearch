@@ -1,0 +1,156 @@
+Processing /work/scripts/700_benchmarks/fwd_neutrons_recon.C("/data/zdc-autoresearch/benchmark-layout/P1b_R0_thr/sim_output/zdc_neutron/epic_craterlake_rec_zdc_neutron_100GeV_0.edm4eic.root","results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf")...
+Total number of events to analyze is 1000
+Analyzing event 0
+Analyzing event 100
+Analyzing event 200
+Analyzing event 300
+Analyzing event 400
+Analyzing event 500
+Analyzing event 600
+Analyzing event 700
+Analyzing event 800
+Analyzing event 900
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf has been created
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_100GeV.pdf has been closed
+Processing /work/scripts/700_benchmarks/fwd_neutrons_recon.C("/data/zdc-autoresearch/benchmark-layout/P1b_R0_thr/sim_output/zdc_neutron/epic_craterlake_rec_zdc_neutron_150GeV_0.edm4eic.root","results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf")...
+Total number of events to analyze is 1000
+Analyzing event 0
+Analyzing event 100
+Analyzing event 200
+Analyzing event 300
+Analyzing event 400
+Analyzing event 500
+Analyzing event 600
+Analyzing event 700
+Analyzing event 800
+Analyzing event 900
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf has been created
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_150GeV.pdf has been closed
+Processing /work/scripts/700_benchmarks/fwd_neutrons_recon.C("/data/zdc-autoresearch/benchmark-layout/P1b_R0_thr/sim_output/zdc_neutron/epic_craterlake_rec_zdc_neutron_200GeV_0.edm4eic.root","results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf")...
+Total number of events to analyze is 1000
+Analyzing event 0
+Analyzing event 100
+Analyzing event 200
+Analyzing event 300
+Analyzing event 400
+Analyzing event 500
+Analyzing event 600
+Analyzing event 700
+Analyzing event 800
+Analyzing event 900
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf has been created
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_200GeV.pdf has been closed
+Processing /work/scripts/700_benchmarks/fwd_neutrons_recon.C("/data/zdc-autoresearch/benchmark-layout/P1b_R0_thr/sim_output/zdc_neutron/epic_craterlake_rec_zdc_neutron_20GeV_0.edm4eic.root","results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf")...
+Total number of events to analyze is 1000
+Analyzing event 0
+Analyzing event 100
+Analyzing event 200
+Analyzing event 300
+Analyzing event 400
+Analyzing event 500
+Analyzing event 600
+Analyzing event 700
+Analyzing event 800
+Analyzing event 900
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf has been created
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_20GeV.pdf has been closed
+Processing /work/scripts/700_benchmarks/fwd_neutrons_recon.C("/data/zdc-autoresearch/benchmark-layout/P1b_R0_thr/sim_output/zdc_neutron/epic_craterlake_rec_zdc_neutron_275GeV_0.edm4eic.root","results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf")...
+Total number of events to analyze is 1000
+Analyzing event 0
+Analyzing event 100
+Analyzing event 200
+Analyzing event 300
+Analyzing event 400
+Analyzing event 500
+Analyzing event 600
+Analyzing event 700
+Analyzing event 800
+Analyzing event 900
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf has been created
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_275GeV.pdf has been closed
+Processing /work/scripts/700_benchmarks/fwd_neutrons_recon.C("/data/zdc-autoresearch/benchmark-layout/P1b_R0_thr/sim_output/zdc_neutron/epic_craterlake_rec_zdc_neutron_50GeV_0.edm4eic.root","results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf")...
+Total number of events to analyze is 1000
+Analyzing event 0
+Analyzing event 100
+Analyzing event 200
+Analyzing event 300
+Analyzing event 400
+Analyzing event 500
+Analyzing event 600
+Analyzing event 700
+Analyzing event 800
+Analyzing event 900
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf has been created
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: Current canvas added to pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf
+Info in <TCanvas::Print>: pdf file results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_50GeV.pdf has been closed

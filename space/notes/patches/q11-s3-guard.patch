@@ -1,0 +1,24 @@
+--- a/configs/metrics.yaml	2026-11-05 10:24:21.543550394 -0500
++++ b/configs/metrics.yaml	2026-11-06 12:55:50.370025462 -0500
+@@ -71,6 +71,8 @@
+   gamma_raw_sum_rel_drop_max: 0.05    # D-user-16 (Q9 A): one-sided, D2 photons' energy in surviving clusters / E_true vs the current best
+   S3_raw_sum_rel_change_max: 0.05     # relative DROP of Σ E_cluster / E_true vs the current best, per D3 momentum (D-user-12, Q8 answer A)
+   S3_raw_sum_direction: drop_only     # D-user-12: an increase passes when σ/mean of the raw sum does not worsen significantly
++  S3_raw_sum_guard_min_momentum_gev: 50   # D-user-26 (Q11 A): the drop limit is a guard at D3 momenta ≥ 50 GeV; 20 GeV is reported
++                                      #   (R0's own raw sum at 20 GeV is 0.087; the D4 neutrons carry ≥ 75 GeV)
+                                       #   (paired bootstrap, 3σ) and S3 clusters per neutron stays inside its limit
+   S3_clusters_per_neutron_max_increase: 0.5
+   S3_gamma_tagged_fraction_max: 0.10  # energy fraction tagged γ in neutron events
+--- a/zdc-setup.md	2026-11-06 12:53:55.842564340 -0500
++++ b/zdc-setup.md	2026-11-06 12:55:50.370169503 -0500
+@@ -181,7 +181,9 @@
+ residuals of its own refit (`300_run_experiment.py` runs 420 after the
+ scoreboard); the γ-tag efficiency is reported beside it. *D-user-12 (Q8)*:
+ the S3 raw-sum guard is one-sided (fails on a drop > 5 %; an increase passes
+-when σ/mean does not worsen and clusters per neutron stays in its limit). *D-user-16 (Q9)*: a one-sided photon
++when σ/mean does not worsen and clusters per neutron stays in its limit).
++*D-user-26 (Q11, 2026-11-06)*: the guard applies at D3 momenta ≥ 50 GeV
++(`S3_raw_sum_guard_min_momentum_gev`); 20 GeV is reported beside it. *D-user-16 (Q9)*: a one-sided photon
+ raw-sum guard on D2 (drop ≤ 5 %, `430_shape_decayz.py`). *D-user-17 (Q10)*:
+ S2 passes when |μ/E − 1| − 2σ ≤ 0.05, σ the refit residual's statistical error.
+ 

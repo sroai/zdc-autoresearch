@@ -1,0 +1,2 @@
+/work/scripts/700_benchmarks/zdc_photon_plots.py:153: OptimizeWarning: Covariance of the parameters could not be estimated
+  coeff, var_matrix = curve_fit(fnc, pvals, resvals, p0=(1,.1),

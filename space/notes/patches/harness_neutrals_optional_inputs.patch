@@ -1,0 +1,17 @@
+diff --git a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+index d5b7c0c4..e4047355 100644
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -21,9 +21,9 @@ private:
+   std::unique_ptr<AlgoT> m_algo;
+ 
+   PodioInput<edm4eic::Cluster> m_clusters_hcal_input{this};
+-  PodioInput<edm4eic::Cluster> m_clusters_b0_input{this};
+-  PodioInput<edm4eic::Cluster> m_clusters_ecalendcapp_input{this};
+-  PodioInput<edm4eic::Cluster> m_clusters_lfhcal_input{this};
++  PodioInput<edm4eic::Cluster, true> m_clusters_b0_input{this};
++  PodioInput<edm4eic::Cluster, true> m_clusters_ecalendcapp_input{this};
++  PodioInput<edm4eic::Cluster, true> m_clusters_lfhcal_input{this};
+ 
+   PodioOutput<edm4eic::ReconstructedParticle> m_hcal_neutrals_output{this};
+   PodioOutput<edm4eic::ReconstructedParticle> m_b0_neutrals_output{this};

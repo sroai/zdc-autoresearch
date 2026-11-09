@@ -1,0 +1,75 @@
+diff --git a/src/algorithms/reco/LambdaReconstruction.cc b/src/algorithms/reco/LambdaReconstruction.cc
+index f392b963..09768ce6 100644
+--- a/src/algorithms/reco/LambdaReconstruction.cc
++++ b/src/algorithms/reco/LambdaReconstruction.cc
+@@ -14,6 +14,7 @@
+ #include <cstddef>
+ #include <stdexcept>
+ #include <tuple>
++#include <utility>
+ #include <vector>
+ 
+ #include "LambdaReconstruction.h"
+@@ -73,22 +74,42 @@ bool LambdaReconstruction::reconstruct_from_triplet(
+   x1.RotateY(-m_cfg.globalToProtonRotation);
+   x2.RotateY(-m_cfg.globalToProtonRotation);
+ 
+-  // Decay vertex. The Lambda comes from the IP, so at small angles its slope is the momentum-weighted
+-  // centroid of the impact points, sum(p_i x_i) / sum(p_i z_i), whatever the decay depth; only the depth
+-  // along that line is unknown. The gamma-gamma opening angle grows monotonically as the vertex approaches
+-  // the ZDC, so the depth follows by bisection (m_cfg.iterations halvings of [0, zMax]). Iterating the
+-  // vertex along a Lambda direction recomputed from the current vertex diverges transversely for decays
+-  // far from the IP.
++  // Decay vertex. The Lambda comes from the IP along a line of slope s; only the depth z of the decay on
++  // that line is unknown. For a vertex at depth z, the daughters fly from v = s z to their impact points
++  // x_i (depth z_i), and their momenta must sum along s. At small angles this fixes the slope for each z:
++  //   s_perp(z) = sum(w_i x_i,perp) / (P + z sum(w_i)),  w_i = p_i / (z_i - z),  P = sum(p_i),
++  // which is the momentum-weighted centroid sum(p_i x_i,perp) / (P z_i) when every impact point lies at one
++  // depth (all three in the ZDC), and weighs a photon in the B0 ECal (z ~ 7 m) by its own lever arm when the
++  // others reach the ZDC. The gamma-gamma opening angle grows monotonically as the vertex approaches the
++  // impact points, so the depth follows by bisection (m_cfg.iterations halvings of [0, zMax]), with zMax
++  // short of the nearest impact point.
+   const double theta_open_expected =
+       2 * std::asin(std::min(1.0, m_pi0 / (2 * std::sqrt(E1 * E2))));
+-  const double wz = pn * xn.Z() + E1 * x1.Z() + E2 * x2.Z();
+-  const TVector3 slope((pn * xn.X() + E1 * x1.X() + E2 * x2.X()) / wz,
+-                       (pn * xn.Y() + E1 * x1.Y() + E2 * x2.Y()) / wz, 1.0);
++  const std::array<std::pair<double, const TVector3*>, 3> impacts{
++      {{pn, &xn}, {E1, &x1}, {E2, &x2}}};
++  const double p_sum = pn + E1 + E2;
++  auto slope_at      = [&](double z) {
++    double sx = 0.0;
++    double sy = 0.0;
++    double sw = 0.0;
++    for (const auto& [p, x] : impacts) {
++      const double w = p / (x->Z() - z);
++      sx += w * x->X();
++      sy += w * x->Y();
++      sw += w;
++    }
++    const double den = p_sum + z * sw;
++    return TVector3(sx / den, sy / den, 1.0);
++  };
++  const double z_first = std::min({xn.Z(), x1.Z(), x2.Z()});
++  if (z_first <= 0.0) {
++    return false;
++  }
+   double z_near = 0.0;
+-  double z_far  = m_zMax;
++  double z_far  = std::min(m_zMax, 0.999 * z_first);
+   for (int i = 0; i < m_cfg.iterations; i++) {
+     const double z     = 0.5 * (z_near + z_far);
+-    const TVector3 v   = slope * z;
++    const TVector3 v   = slope_at(z) * z;
+     const double theta = (x1 - v).Angle(x2 - v);
+     if (theta > theta_open_expected) {
+       z_far = z;
+@@ -96,7 +117,7 @@ bool LambdaReconstruction::reconstruct_from_triplet(
+       z_near = z;
+     }
+   }
+-  TVector3 vtx = slope * z_near;
++  TVector3 vtx = slope_at(z_near) * z_near;
+ 
+   TLorentzVector n{pn * (xn - vtx).Unit(), En};
+   TLorentzVector g1{E1 * (x1 - vtx).Unit(), E1};

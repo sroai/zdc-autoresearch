@@ -1,0 +1,133 @@
+--- a/zdc-setup.md	2026-11-05 10:24:21.543934525 -0500
++++ b/zdc-setup.md	2026-11-06 12:34:19.490275970 -0500
+@@ -2,7 +2,8 @@
+ 
+ Everything specific to this program lives here: names, pins, datasets,
+ metrics, budgets, farm paths. `work-common.md` holds the rules of every
+-run; `zdc-autoresearch-loop-v2.md` holds the phases. Every number that
++run; `zdc-autoresearch-loop-v3.md` holds the phases (v2 holds the
++Step 0 tables of the finished Phases 0 and 1). Every number that
+ belongs to this program is here and nowhere else; a number marked
+ *Step 0 fills* is written into this file by the agent during Phase 0 with
+ its evidence, and never changed afterwards without a `D-user` decision.
+@@ -22,7 +23,9 @@
+ | `{image}` | `eicweb/eic_xl:26.11.0-stable` (digest: `eicweb/eic_xl@sha256:37e7fb527c8b3421bf2d353f4fc3146b1efb07a3a07ebd01bbced8417d29add3`); on ifarm `/cvmfs/singularity.opensciencegrid.org/eicweb/eic_xl:26.11.0-stable` |
+ | `{wrapper}` | `scripts/100_in_container.sh` — runs one command inside `{image}` with `{repo}` at `/work` and `{data}` at `/data`, EIC environment loaded |
+ | `{eicrecon}` | `submodules/EICrecon` at `e5e2a60c60b6a10a25cbe35497da1d4996a492df` (main, 2026-11-04) |
+-| `{pr}` | EICrecon PR 3064, head `fdbb773d6e4f03d034c843dfffce391f625f3a93`, base `66b8cf62` (14 commits behind the pin), branch `baptiste/zdc-clustering-calibration`; R1 is its three-file diff applied to the pin (`space/notes/patches/R1_pr3064.patch`) |
++| `{pr}` | EICrecon PR 3064, head `fdbb773d6e4f03d034c843dfffce391f625f3a93`, base `66b8cf62` (14 commits behind the pin), branch `baptiste/zdc-clustering-calibration`; R1 is its three-file diff applied to the pin (`space/notes/patches/R1_pr3064.patch`). Its head moved to `92288da4` on 2026-11-05 (a merge of main only; the three files unchanged); CONFLICTING with main since PR 3114 merged |
++| `{pr3114}` | EICrecon PR 3114 (photon box 100/12 → 110/22 mm), MERGED 2026-11-05 21:08 UTC, backported as 3117; parameter-tier on the pin = reference R2 |
++| `{pr3063}` | EICrecon PR 3063 (Λ mass windows removed, IDOLA on every triplet, χ² ranking), head `364a310a`, OPEN, 18 commits behind main; `LambdaReconstruction.cc` is unchanged on main since the PR's base, so its one-file diff applies to the pin = reference R3 (`space/notes/patches/R3_pr3063.patch`, Phase 3 Step 0 writes) |
+ | `{benchmarks}` | `submodules/detector_benchmarks` at `e72103b9` (master, 2026-11-04) |
+ | `{capybara}` | `submodules/epic-capybara` at `4b6b41cc` (v1.3.0) |
+ | `{msf}` | `submodules/meson-structure` at `f0dff480` (main, 2026-11-04); its own submodules are not initialized |
+@@ -90,6 +93,9 @@
+ | R0 | `{eicrecon}` at the pin, stock parameters | the baseline every experiment is measured against; the identical-output guard for non-ZDC collections |
+ | R1 | the pin plus `{pr}`'s three-file diff (`space/notes/patches/R1_pr3064.patch`; build label `R1`) | the candidate; its scoreboard row is the first thing Phase 1 explains. Never the PR's own commit: its base is 14 commits behind the pin (#3061 changed HEXPLIT truth links, #3051 attenuation, #3031 particle flow) |
+ | Rt | the pin plus `space/notes/patches/truthchain.patch` (a second neutrals and Λ factory instance reading `HcalFarForwardZDCTruthClusters`) | the truth-cluster ceiling of S4a: what perfect clustering would give under the same `LambdaReconstruction` |
++| R2 | R0 + `{pr3114}` (parameter tier, `configs/experiments/R2_pr3114.yaml`; D-user-15) | **the baseline of every Λ comparison from 2026-11-06** (main carries the box fix); S0 identical to R0 |
++| R3 | R2 + `{pr3063}` (one-file patch on the pin, build label `R3`; Phase 3 Step 0 writes) | the Λ chain upstream proposes; B9d is judged against it, and `414`'s `vertex` pairing is its pre-registered prediction |
++| R1p | R1 + `{pr3114}` (parameter tier on the R1 build) | the author's package (clustering + box) as the author tuned it; owed to a fair review of PR 3064 |
+ 
+ All reference reconstructions run single-threaded (`-Pjana:nthreads=1`), so
+ that outputs are deterministic and G4 can demand identity (the PR's CI shows
+@@ -127,7 +133,9 @@
+ | S1d | D1 | photon position resolution at the ZDC face (best cluster vs the true impact point) | diagnostic |
+ | S2 | D2 | photon energy scale |μ/E − 1| per momentum from the best-matched cluster's corrected energy; resolution σ/μ; θ resolution; γ-tag efficiency (the best-matched cluster is tagged PDG 22 in the neutrals) | **guard** on the scale (limit per momentum in `configs/metrics.yaml`): a calibration must not inflate photons to pass the π⁰ window |
+ | S3 | D3 | neutron **raw** cluster-energy sum Σ E(`HcalFarForwardZDCClusters`) / E_true (mean and σ, no `corrPower`); corrected scale and resolution; θ resolution; clusters per neutron; energy fraction tagged γ in neutron events; n mis-tag rate (best cluster tagged PDG 22) | **guard**: raw sum, clusters per neutron and γ-tagged fraction inside their limits |
+-| S4a | D4 | Λ reconstruction efficiency, **truth-matched**: events with a `ReconstructedLambdas` entry built from clusters associated to the true n, γ, γ (each with purity ≥ 0.8) and mass inside the window, divided by generated events, per momentum; beside it the raw count-any-Λ fraction, and the Rt ceiling | outcome, reported, never the selector |
++| S4a | D4 | Λ reconstruction efficiency, **truth-matched** (`S4a_tm`): events with a `ReconstructedLambdas` entry built from clusters associated to the true n, γ, γ (each with purity ≥ 0.8) and mass inside the fixed scoring window, divided by generated events, per momentum; beside it the raw count-any-Λ fraction, and the Rt ceiling | outcome; **the selector of the Λ family** (D-default-25) and, once B9d is ACCEPTED, a co-selector of clustering experiments (loop v3, Phase 3) |
++| S4o | D4 | the Λ chain **offline on real clusters** (`scripts/415_lambda_chain_offline.py`, Phase 3 Step 0 writes): the stock pairing and `414`'s `vertex_fixed` pairing applied to each row's best-matched clusters with the row's calibration, scored in the fixed window; *tagged* (needs the photon tag) and *truth-identified* variants, per accepted event and per thrown | reported beside S0 for every row; the number that ties a clustering row to a Λ yield |
++| H | D4 | the headline side table `{space}/perf/headline.csv` (`scripts/441_headline.py`): S0all, S4a_tm and S4o per thrown Λ → nπ⁰ (× the acceptance of `413`) per momentum, the mean over 100–275 GeV and the 275 GeV value | every brief report line and every deck number comes from it (D-user-20) |
+ | S4b | D4 | Λ mass peak and σ; θ* and decay-z resolution (the benchmark's fits), on the truth-matched Λ | guard: σ not worse than the current best beyond the paired error |
+ | S4c | D4 | mean number of `ReconstructedHcalFarForwardZDCNeutrals` tagged γ per event | guard against fragment combinatorics: inside its limit |
+ | S5 | D6a (quick) / D6b (confirmation) | Λ → nπ⁰ candidates per 1000 events, ZDC-only and all-calorimeter separately; mass peak and σ; efficiency against MC-truth Λ with all three daughters inside the face; the acceptance row (events with ≥ 1 HCal RecHit) | the physics goal; confirmation only |
+@@ -211,8 +219,11 @@
+ 
+ | item | value | source |
+ |---|---|---|
+-| parameter experiment (no rebuild) | ≤ 30 minutes wall on D1 to D4 (D5 and full G4 at checkpoints only) | ZDC-only reconstruction of 2000 events takes seconds; D5 full-detector reconstruction dominates. *Step 0 filled*: T per 1000 events, single-threaded, R0: D1 279 s, D2 236 s, D3 415 s, D4 504 s, D5 NC 2417 s, D5 SIDIS 1338 s (the guns run on the full detector, D-user-8); D1–D4 (46 000 events) on 9 processes ≈ 30 min, D5 (6200 events) ≈ 25 min |
+-| code experiment | the above plus one incremental build and full G4 on every dataset; a clean build (30 to 60 minutes) only when the incremental one fails | EICrecon `AGENTS.md` |
++| parameter experiment (no rebuild) | every dataset D1–D5 reconstructed with the **restricted output collections** (`MCParticles`, `EventHeader`, `.*FarForwardZDC.*`, `Reconstructed.*Neutrals.*`, `ReconstructedLambda.*`; the template `configs/experiments/_template_parameter.yaml`, Phase 3 Step 0 writes); G1–G3 come from the ZDC clusters of D5, G4 is static (loop rule) and the gate table records the compare of the owned collections; target ≤ 10 GB and ≤ 30 minutes wall per experiment (T measured on one D4 file and one D5 chunk at Phase 3 Step 0, *written here then*). Try 1 wrote every collection on every dataset: 63 GB and about one hour per experiment | ZDC-only reconstruction of 2000 events takes seconds; D5 full-detector reconstruction dominates. *Step 0 filled*: T per 1000 events, single-threaded, R0: D1 279 s, D2 236 s, D3 415 s, D4 504 s, D5 NC 2417 s, D5 SIDIS 1338 s (the guns run on the full detector, D-user-8); D1–D4 (46 000 events) on 9 processes ≈ 30 min, D5 (6200 events) ≈ 25 min |
++| code experiment | the above plus one incremental build, a full-collection D5 and full G4 on every dataset with the capybara reports (non-owned and ZDC views); a clean build (30 to 60 minutes) only when the incremental one fails | EICrecon `AGENTS.md` |
++| checkpoint | the full-collection D5 of the current best, full G4 and the two capybara views against R0, the held-out D1h/D4h, the report, the question sweep | loop v3 |
++| preflight (every launch, `300`) | free space on `{data}` ≥ 2 × the expected output of the launch and never under 150 GB; eicrecon processes running + requested ≤ cores − 2 (22 on the workstation); after every chain: each output has its per-file JSON and a non-empty log, no `ENOSPC`/`Traceback`/`segmentation`/`timeout` in the logs, sizes within 50 % of the reference row's counterpart; any failure stops the chain before the scoreboard | try 1: /data full at 865 GB, 24 processes on 24 cores (`notes/lesson-disk-budget.md`) |
++| retention | full reco ROOT only for R0, R1, R2, R3, Rt and the current best; a REJECTED row's ROOT deleted right after its verdict | D-user-19 |
+ | experiments per run before a checkpoint | 5 (held-out check, report, question sweep); the run ends for user review after 10 | the ilreco journal rule |
+ | farm (Phase 4) | one array per (configuration, energy): 20 tasks of 5 files, `%16`, ≤ 4 h each, submitted one after another; six arrays in all | the farm rules; ≤ 200 tasks per run |
+ | reading plots | once per checkpoint, on the current best; the G diagnostics are numbers | token thrift |
+@@ -220,9 +231,15 @@
+ ## Review delivery
+ 
+ When the user is remote, every checkpoint sends to the chat: the checkpoint
+-section of the phase report, the current best's benchmark plots (PDF), and
+-`space/QUESTIONS.md` when it gained a question. Otherwise the files are
+-named in STATUS.md.
++section of the phase report, the current best's benchmark plots (PNG), the
++gate table and the capybara non-owned view, and `space/QUESTIONS.md` when it
++gained a question. Otherwise the files are named in STATUS.md.
++
++Plot format (D-user-22): every plot the program writes is a PNG under
++`{space}/plots/`. A tool the program does not own that writes PDF (the
++benchmark copies, ROOT macros) keeps its PDF and gets a PNG per page beside
++it from `scripts/701_pdf_to_png.sh` (pdftoppm, 110 dpi), which `300` runs
++after the benchmark step. Decks embed PNGs.
+ 
+ ## Frozen after Phase 0
+ 
+@@ -233,13 +250,16 @@
+ configs of the references, `scripts/13*` (the gates), `scripts/400_scoreboard.py`,
+ `scripts/410_truth_match.py`, `scripts/700_benchmarks/`,
+ `{space}/perf/manifest-datasets.json`, `{space}/perf/references.json`,
+-`{space}/perf/noise-validation.json`, and the three protocol files. A change
+-to any of them is a question, never an edit.
++`{space}/perf/noise-validation.json`, and the protocol files (this file,
++`work-common.md`, loop v2 and v3). A change to any of them is a question,
++never an edit; a protocol revision between runs is a patch under
++`space/notes/patches/` that the user applies (D-user-23).
+ 
+ ## People and threads
+ 
+-- Baptiste Fraisse (`baptistefraisse`): author of issue #2737 and PR #3064;
+-  the MSF Λ analysis.
++- Baptiste Fraisse (`baptistefraisse`): author of issue #2737 and of the
++  three PRs 3064 (clustering + calibration), 3114 (photon box, merged) and
++  3063 (Λ chain); the MSF Λ analysis.
+ - Wouter Deconinck (`wdconinc`): the review finding of 2026-10-30.
+ - Sebouh Paul (`sebouh137`): ZDC reconstruction and benchmarks author
+   (HEXPLIT, FarForwardNeutralsReconstruction, zdc_* benchmarks).
+--- a/work-common.md	2026-11-04 20:18:44.576623204 -0500
++++ b/work-common.md	2026-11-06 12:34:19.490437084 -0500
+@@ -2,7 +2,7 @@
+ 
+ Three files run a program. The **setup file** (`zdc-setup.md`) holds what is
+ specific to this program: paths, pins, datasets, metrics, budgets, the
+-variables below. The **loop file** (`zdc-autoresearch-loop-v2.md`) holds the
++variables below. The **loop file** (`zdc-autoresearch-loop-v3.md`) holds the
+ phases: each phase's task, its ruler (what "correct" means in that phase),
+ its Step 0, its done criterion and extra decision-table rows. This file holds
+ the rules of every run: the environment, the work protocol, the FIX / DECIDE /
+@@ -106,11 +106,22 @@
+   record, where the user can veto it.
+ - Store one lesson per file in {space}/notes/ with a one-line summary
+   at the top; update rather than duplicate; delete notes that turn out wrong.
++  A lesson's rule changes the config or script that caused the trap in the
++  same step, and the lesson names that edit (try 1 wrote the disk lesson and
++  left the cause in the config template).
+   A lesson that generalizes beyond this program is promoted the same day
+   (Memory section).
+ - Put plots in {space}/plots/phase{#}/ and write results up in
+   {space}/reports/phase{#}_.... Previous results, plots and knowledge must
+-  persist as you progress.
++  persist as you progress. Every plot is a PNG; a tool that writes PDF gets
++  a PNG beside it (the setup file, Review delivery, names the converter).
++- Every timestamp you write into the ledger, the run log, DECISIONS.md or
++  QUESTIONS.md comes from `date -u` in the command that writes the entry,
++  never from your own sense of time (try 1 wrote some early timestamps ahead
++  of the clock).
++- A headline number (a report line, a chat line, a deck number) comes from a
++  script's output file, never from arithmetic in chat; the setup file names
++  the script.
+ - Record every decision that constrains later work in
+   {space}/notes/DECISIONS.md (format in the Memory section). Tie decisions
+   to evidence and measured numbers; the numbers themselves stay in the

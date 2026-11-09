@@ -1,0 +1,9 @@
+ok   zdc_photon     20 GeV  ZDC neutrals PDG 22=44  ZDC clusters=944
+ok   zdc_photon     30 GeV  ZDC neutrals PDG 22=84  ZDC clusters=981
+ok   zdc_photon     50 GeV  ZDC neutrals PDG 22=91  ZDC clusters=982
+ok   zdc_photon     70 GeV  ZDC neutrals PDG 22=31  ZDC clusters=984
+ok   zdc_photon    100 GeV  ZDC neutrals PDG 22=0  ZDC clusters=986
+ok   zdc_photon    150 GeV  ZDC neutrals PDG 22=0  ZDC clusters=987
+ok   zdc_photon    200 GeV  ZDC neutrals PDG 22=0  ZDC clusters=989
+ok   zdc_photon    275 GeV  ZDC neutrals PDG 22=0  ZDC clusters=988
+2 PDF(s) in /home/romanov/dev/zdc-autoresearch/space/plots/phase1/P1a_R0_nlr3/benchmarks/zdc_photon

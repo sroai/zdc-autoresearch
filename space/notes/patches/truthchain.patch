@@ -1,0 +1,49 @@
+diff --git a/src/global/reco/reco.cc b/src/global/reco/reco.cc
+index 78ab4ab2..b0d04868 100644
+--- a/src/global/reco/reco.cc
++++ b/src/global/reco/reco.cc
+@@ -275,6 +275,44 @@ void InitPlugin(JApplication* app) {
+        .iterations             = 10},
+       app));
+ 
++  // Truth-cluster chain (zdc-autoresearch Rt): the same neutrals and Lambda reconstruction fed with
++  // HcalFarForwardZDCTruthClusters, i.e. the Lambda efficiency that perfect ZDC clustering would give.
++  app->Add(new JOmniFactoryGeneratorT<FarForwardNeutralsReconstruction_factory>(
++      "ReconstructedFarForwardNeutralsTruth",
++      {"HcalFarForwardZDCTruthClusters", "B0ECalClusters", "EcalEndcapPClusters", "LFHCALClusters"},
++      {"ReconstructedHcalFarForwardZDCNeutralsTruth", "ReconstructedB0EcalNeutralsTruth",
++       "ReconstructedEcalEndcapPNeutralsTruth", "ReconstructedLFHCALNeutralsTruth"},
++      {.offsetPositionName               = "HcalFarForwardZDC_SiPMonTile_r_pos",
++       .neutronScaleCorrCoeffHcalZDC     = {2.4, 0.89},
++       .gammaScaleCorrCoeffHcalZDC       = {1.1, 0.98},
++       .neutronScaleCorrCoeffLFHCAL      = {2.55, 0.95},
++       .gammaScaleCorrCoeffLFHCAL        = {0., 0.},
++       .neutronScaleCorrCoeffB0Ecal      = {0., 0.},
++       .gammaScaleCorrCoeffB0Ecal        = {0.99, 1.14},
++       .neutronScaleCorrCoeffEcalEndcapP = {0., 0.},
++       .gammaScaleCorrCoeffEcalEndcapP   = {1.05, 1.01},
++       .clusterEminHcalZDC               = 0.0,
++       .clusterEminB0Ecal                = 1.0,
++       .clusterEminEcalEndcapP           = 1.0,
++       .clusterEminLFHCAL                = 7.0,
++       .globalToProtonRotation           = -0.025,
++       .gammaZMaxOffset                  = 400,
++       .gammaMaxLength                   = 100,
++       .gammaMaxWidth                    = 12},
++      app));
++
++  app->Add(new JOmniFactoryGeneratorT<LambdaReconstruction_factory>(
++      "ReconstructedLambdasTruth",
++      {"ReconstructedHcalFarForwardZDCNeutralsTruth", "ReconstructedB0EcalNeutralsTruth",
++       "ReconstructedEcalEndcapPNeutralsTruth", "ReconstructedLFHCALNeutralsTruth"},
++      {"ReconstructedLambdasTruth", "ReconstructedLambdaDecayProductsCMTruth"},
++      {.offsetPositionName     = "HcalFarForwardZDC_SiPMonTile_r_pos",
++       .globalToProtonRotation = -0.025,
++       .lambdaMassWindow       = 0.1,
++       .pi0Window              = 0.1,
++       .iterations             = 10},
++      app));
++
+   app->Add(new JOmniFactoryGeneratorT<HadronicFinalState_factory<HadronicFinalState>>(
+       "HadronicFinalState",
+       {"MCBeamElectrons", "MCBeamHadrons", "MCParticles", "ReconstructedParticles",

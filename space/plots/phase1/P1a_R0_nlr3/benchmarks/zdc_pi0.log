@@ -1,0 +1,5 @@
+/work/scripts/700_benchmarks/zdc_pi0_plots.py:86: OptimizeWarning: Covariance of the parameters could not be estimated
+  coeff, var_matrix = curve_fit(fnc, pvals, resvals, p0=(1,),
+/work/scripts/700_benchmarks/zdc_pi0_plots.py:240: OptimizeWarning: Covariance of the parameters could not be estimated
+  coeff, var_matrix = curve_fit(fnc, pvals, resvals, p0=(1,1),
+fit failed

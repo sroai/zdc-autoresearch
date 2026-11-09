@@ -1,0 +1,28 @@
+fit failed for p=50 Optimal parameters not found: Number of calls to function has reached maxfev = 10000. [np.float64(40.125), np.float64(40.375), np.float64(40.625), np.float64(40.875), np.float64(41.125), np.float64(41.375), np.float64(41.625), np.float64(41.875), np.float64(42.125), np.float64(42.375), np.float64(42.625), np.float64(42.875), np.float64(43.125), np.float64(43.375), np.float64(43.625), np.float64(43.875), np.float64(44.125), np.float64(44.375), np.float64(44.625), np.float64(44.875), np.float64(45.125), np.float64(45.375), np.float64(45.625), np.float64(45.875), np.float64(46.125), np.float64(46.375), np.float64(46.625), np.float64(46.875), np.float64(47.125), np.float64(47.375), np.float64(47.625), np.float64(47.875), np.float64(48.125), np.float64(48.375), np.float64(48.625), np.float64(48.875), np.float64(49.125), np.float64(49.375), np.float64(49.625), np.float64(49.875), np.float64(50.125), np.float64(50.375), np.float64(50.625), np.float64(50.875), np.float64(51.125), np.float64(51.375), np.float64(51.625), np.float64(51.875), np.float64(52.125), np.float64(52.375), np.float64(52.625), np.float64(52.875), np.float64(53.125), np.float64(53.375), np.float64(53.625), np.float64(53.875), np.float64(54.125), np.float64(54.375), np.float64(54.625), np.float64(54.875), np.float64(55.125), np.float64(55.375), np.float64(55.625), np.float64(55.875), np.float64(56.125), np.float64(56.375), np.float64(56.625), np.float64(56.875), np.float64(57.125), np.float64(57.375), np.float64(57.625), np.float64(57.875), np.float64(58.125), np.float64(58.375), np.float64(58.625), np.float64(58.875), np.float64(59.125), np.float64(59.375), np.float64(59.625), np.float64(59.875)] [np.float64(4.0), np.float64(3.0), np.float64(8.0), np.float64(6.0), np.float64(7.0), np.float64(2.0), np.float64(5.0), np.float64(3.0), np.float64(4.0), np.float64(3.0), np.float64(1.0), np.float64(7.0), np.float64(2.0), np.float64(6.0), np.float64(5.0), np.float64(3.0), np.float64(4.0), np.float64(3.0), np.float64(5.0), np.float64(4.0), np.float64(5.0), np.float64(0.0), np.float64(3.0), np.float64(5.0), np.float64(3.0), np.float64(5.0), np.float64(3.0), np.float64(3.0), np.float64(3.0), np.float64(2.0), np.float64(6.0), np.float64(6.0), np.float64(3.0), np.float64(1.0), np.float64(2.0), np.float64(3.0), np.float64(2.0), np.float64(0.0), np.float64(2.0), np.float64(5.0), np.float64(1.0), np.float64(2.0), np.float64(5.0), np.float64(0.0), np.float64(3.0), np.float64(1.0), np.float64(4.0), np.float64(2.0), np.float64(2.0), np.float64(4.0), np.float64(2.0), np.float64(3.0), np.float64(3.0), np.float64(2.0), np.float64(4.0), np.float64(6.0), np.float64(7.0), np.float64(0.0), np.float64(2.0), np.float64(2.0), np.float64(4.0), np.float64(3.0), np.float64(6.0), np.float64(3.0), np.float64(1.0), np.float64(1.0), np.float64(2.0), np.float64(1.0), np.float64(0.0), np.float64(2.0), np.float64(6.0), np.float64(5.0), np.float64(0.0), np.float64(2.0), np.float64(4.0), np.float64(4.0), np.float64(3.0), np.float64(5.0), np.float64(3.0), np.float64(2.0)]
+Traceback (most recent call last):
+  File "/work/scripts/700_benchmarks/zdc_photon_plots.py", line 76, in <module>
+    plt.errorbar(pvals, resvals, dresvals, ls='', marker='o')
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/local/lib/python3.13/site-packages/matplotlib/_api/deprecation.py", line 453, in wrapper
+    return func(*args, **kwargs)
+  File "/opt/local/lib/python3.13/site-packages/matplotlib/pyplot.py", line 3282, in errorbar
+    return gca().errorbar(
+           ~~~~~~~~~~~~~~^
+        x,
+        ^^
+    ...<15 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/opt/local/lib/python3.13/site-packages/matplotlib/_api/deprecation.py", line 453, in wrapper
+    return func(*args, **kwargs)
+  File "/opt/local/lib/python3.13/site-packages/matplotlib/__init__.py", line 1524, in inner
+    return func(
+        ax,
+        *map(cbook.sanitize_sequence, args),
+        **{k: cbook.sanitize_sequence(v) for k, v in kwargs.items()})
+  File "/opt/local/lib/python3.13/site-packages/matplotlib/axes/_axes.py", line 3825, in errorbar
+    raise ValueError(
+        f"'{dep_axis}err' must not contain negative values")
+ValueError: 'yerr' must not contain negative values

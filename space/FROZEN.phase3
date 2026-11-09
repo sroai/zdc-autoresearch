@@ -1,0 +1,60 @@
+# Copy this file to space/FROZEN at the end of Phase 0 (loop file, Phase 0 item
+# 16). Prefixes are relative to the repository root; `!` marks an exception that
+# stays writable. Read by .claude/hooks/protect.py.
+submodules/EICrecon
+!submodules/EICrecon/src/detectors/ZDC
+!submodules/EICrecon/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+!submodules/EICrecon/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+!submodules/EICrecon/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+!submodules/EICrecon/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+!submodules/EICrecon/src/global/reco/reco.cc
+# LambdaReconstruction* opened by D-user-14 (2026-11-05, checkpoint question 3) from Phase 2 on;
+# Phase 1 does not touch it:
+!submodules/EICrecon/src/algorithms/reco/LambdaReconstruction.cc
+!submodules/EICrecon/src/algorithms/reco/LambdaReconstruction.h
+!submodules/EICrecon/src/algorithms/reco/LambdaReconstructionConfig.h
+!submodules/EICrecon/src/factories/reco/LambdaReconstruction_factory.h
+# Shared calorimetry algorithms: writable only in Phase 3 if checkpoint
+# question 5 allowed it, under full G4 (BEMC and FHCAL use them too).
+# Opened 2026-11-07 for B11 (Phase 3): Q5 option A via D-user-7 → D-default-20; recorded as D-default-41.
+!submodules/EICrecon/src/algorithms/calorimetry/ImagingTopoCluster.cc
+!submodules/EICrecon/src/algorithms/calorimetry/ImagingTopoCluster.h
+!submodules/EICrecon/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+!submodules/EICrecon/src/factories/calorimetry/ImagingTopoCluster_factory.h
+submodules/detector_benchmarks
+submodules/epic-capybara
+submodules/meson-structure
+submodules/skill-eicrecon
+configs/datasets.yaml
+configs/metrics.yaml
+configs/local.yaml
+configs/ifarm.yaml
+configs/experiments/R0_stock.yaml
+configs/experiments/R1_pr3064.yaml
+scripts/130_compare_collections.py
+scripts/131_prove_gates.sh
+scripts/400_scoreboard.py
+scripts/410_truth_match.py
+scripts/700_benchmarks
+space/perf/manifest-datasets.json
+space/perf/references.json
+space/perf/noise-validation.json
+zdc-setup.md
+work-common.md
+zdc-autoresearch-loop-v2.md
+# Added at the end of Phase 0 (2026-11-05): the shared readers and the ruler scripts written in Step 0
+zdc/edm.py
+zdc/config.py
+scripts/121_manifest.py
+scripts/133_switch_tests.sh
+scripts/200_cluster_distributions.py
+scripts/401_benchmark_plots.sh
+scripts/403_benchmark_entries.py
+scripts/404_noise_validation.py
+scripts/412_lambda_ceiling.py
+scripts/420_refit_calibration.py
+scripts/430_shape_decayz.py
+scripts/405_heldout_check.py
+scripts/413_lambda_gun_acceptance.py
+scripts/414_lambda_ceiling_variants.py
+zdc-autoresearch-loop-v3.md

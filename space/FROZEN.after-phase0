@@ -40,3 +40,13 @@ space/perf/noise-validation.json
 zdc-setup.md
 work-common.md
 zdc-autoresearch-loop-v2.md
+# Added at the end of Phase 0 (2026-11-05): the shared readers and the ruler scripts written in Step 0
+zdc/edm.py
+zdc/config.py
+scripts/121_manifest.py
+scripts/133_switch_tests.sh
+scripts/200_cluster_distributions.py
+scripts/401_benchmark_plots.sh
+scripts/403_benchmark_entries.py
+scripts/404_noise_validation.py
+scripts/412_lambda_ceiling.py

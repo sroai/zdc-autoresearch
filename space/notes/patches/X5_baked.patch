@@ -1,0 +1,51 @@
+From 57b698c4dd430737e4612dab65ae329446a9bc5f Mon Sep 17 00:00:00 2001
+From: Dmitry Romanov <romanovda@gmail.com>
+Date: Sun, 8 Nov 2026 02:59:47 -0500
+Subject: [PATCH] Bake accepted parameter tries X4 and X5: photon depth limit
+ 225 mm past the ZDC face
+
+Phase 4, X4_photon_depth and X5_photon_depth_face were parameter tries on X3's build (commit 50018ef8),
+both ACCEPTED (461): X5 = 4.373 % mean / 8.030 % at 275 GeV per thrown Lambda -> n pi0 (X4 3.278 / 6.055;
+pooled gained 972, lost 28, z +29.85; fair play PASS). gammaZMaxOffset is added to
+HcalFarForwardZDC_SiPMonTile_r_pos, the ZDC centre (front face 3580.0 cm + length 183.27 cm / 2), so
+-691.4 mm puts the photon depth limit 225 mm past the front face. Build X5b without parameters
+reproduces X5 on D4 175 GeV (305 ZDC leaves identical). No behaviour change against X5.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h | 3 ++-
+ src/global/reco/reco.cc                                      | 4 +++-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+index c3abef3e..cd117291 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -33,7 +33,8 @@ struct FarForwardNeutralsReconstructionConfig {
+   /** rotation from global to local coordinates */
+   double globalToProtonRotation = -0.025;
+   /** Neutron-photon separation in HcalFarForwardZDC */
+-  double gammaZMaxOffset = 400;
++  // offset added to offsetPositionName (the ZDC centre); -691.4 mm puts the limit 225 mm past the front face
++  double gammaZMaxOffset = -691.4;
+   double gammaMaxLength  = 150;
+   double gammaMaxWidth   = 12;
+   /** Photon pairing in HcalFarForwardZDC by the Lambda -> n pi0 -> n gamma gamma hypothesis: among the clusters
+diff --git a/src/global/reco/reco.cc b/src/global/reco/reco.cc
+index a7e81fda..eff01887 100644
+--- a/src/global/reco/reco.cc
++++ b/src/global/reco/reco.cc
+@@ -258,7 +258,9 @@ void InitPlugin(JApplication* app) {
+        .clusterEminEcalEndcapP           = 1.0,
+        .clusterEminLFHCAL                = 7.0,
+        .globalToProtonRotation           = -0.025,
+-       .gammaZMaxOffset                  = 400,
++       // photon candidates start within 225 mm of the ZDC front face: the offset is added to
++       // HcalFarForwardZDC_SiPMonTile_r_pos, the ZDC centre (front face + half the 1832.7 mm length)
++       .gammaZMaxOffset                  = -691.4,
+        .gammaMaxLength                   = 150,
+        .gammaMaxWidth                    = 12},
+       app));
+-- 
+2.56.0
+

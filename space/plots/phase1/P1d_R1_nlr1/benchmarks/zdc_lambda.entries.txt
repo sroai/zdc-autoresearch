@@ -1,0 +1,9 @@
+ok   zdc_lambda    100 GeV  ZDC cluster multiplicity (events)=2000  ReconstructedLambdas=4  CM neutrons=4
+ok   zdc_lambda    125 GeV  ZDC cluster multiplicity (events)=2000  ReconstructedLambdas=25  CM neutrons=25
+ok   zdc_lambda    150 GeV  ZDC cluster multiplicity (events)=2000  ReconstructedLambdas=72  CM neutrons=72
+ok   zdc_lambda    175 GeV  ZDC cluster multiplicity (events)=2000  ReconstructedLambdas=110  CM neutrons=110
+ok   zdc_lambda    200 GeV  ZDC cluster multiplicity (events)=2000  ReconstructedLambdas=179  CM neutrons=179
+ok   zdc_lambda    225 GeV  ZDC cluster multiplicity (events)=2000  ReconstructedLambdas=205  CM neutrons=205
+ok   zdc_lambda    250 GeV  ZDC cluster multiplicity (events)=2000  ReconstructedLambdas=221  CM neutrons=221
+ok   zdc_lambda    275 GeV  ZDC cluster multiplicity (events)=2000  ReconstructedLambdas=257  CM neutrons=257
+13 PDF(s) in /home/romanov/dev/zdc-autoresearch/space/plots/phase1/P1d_R1_nlr1/benchmarks/zdc_lambda

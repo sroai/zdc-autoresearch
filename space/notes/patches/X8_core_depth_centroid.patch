@@ -1,0 +1,229 @@
+From 26bd69251fda8d110b1e646b6a5edc78fefe0cf3 Mon Sep 17 00:00:00 2001
+From: Dmitry Romanov <romanovda@gmail.com>
+Date: Sun, 8 Nov 2026 04:11:42 -0500
+Subject: [PATCH] ZDC try X8: photon cores limited to 5 layers, neutron at its
+ cluster centroid, refit
+
+Phase 4 (the Lambda bar fight), experiment X8_core_depth_centroid, build label X8, on X7 (accepted).
+- ImagingTopoCluster: coreSplitCoreMaxLayer (default off): a core region keeps its hits up to that
+  layer, deeper hits join the shared deep region (a photon deposits early; the neutron's energy in the
+  same column is what made photon clusters impure). The ZDC uses 5 layers.
+- FarForwardNeutralsReconstruction: neutronPositionCentroid (default off; set in reco.cc for the ZDC):
+  the SumAll neutron and the pairing's neutron hypothesis sit at the energy-weighted centroid of their
+  clusters instead of the leader cluster.
+- Calibration refit on D2/D3 for this clustering: photon 3.952*E^0.938 (neutron unchanged 6.214*E^0.740).
+Scans (two D4 files, X7's calibration): 847 / 867 matched at 150 / 275 GeV vs X7's 790 / 793; plateau
+over 4-6 layers; the centroid alone 822 / 819 (the 471 emulation predicted 822 / 818).
+Prediction: S4a_tm per thrown Lambda -> n pi0 = 7.4 % mean over 100-275 GeV and 14.0 % at 275 GeV
+(X7: 6.853 % / 12.942 %). Judged against X7_core_split.
+Verdict: pending (recorded in the next commit on this branch).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../calorimetry/ImagingTopoCluster.cc         | 20 ++++++++++++--
+ .../calorimetry/ImagingTopoClusterConfig.h    |  2 ++
+ .../reco/FarForwardNeutralsReconstruction.cc  | 27 ++++++++++++++++++-
+ .../FarForwardNeutralsReconstructionConfig.h  |  4 ++-
+ src/detectors/ZDC/ZDC.cc                      |  2 ++
+ .../calorimetry/ImagingTopoCluster_factory.h  |  1 +
+ ...FarForwardNeutralsReconstruction_factory.h |  3 +++
+ src/global/reco/reco.cc                       |  5 ++--
+ 8 files changed, 58 insertions(+), 6 deletions(-)
+
+diff --git a/src/algorithms/calorimetry/ImagingTopoCluster.cc b/src/algorithms/calorimetry/ImagingTopoCluster.cc
+index b8318b81..9b441486 100644
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.cc
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.cc
+@@ -333,7 +333,7 @@ void ImagingTopoCluster::core_split_group(const edm4eic::CalorimeterHitCollectio
+       kept.push_back(c);
+     }
+   }
+-  if (kept.empty() || (kept.size() == 1 && deep.empty())) {
++  if (kept.empty() || (kept.size() == 1 && deep.empty() && m_cfg.coreSplitCoreMaxLayer <= 0)) {
+     regions.push_back(group);
+     return;
+   }
+@@ -371,7 +371,23 @@ void ImagingTopoCluster::core_split_group(const edm4eic::CalorimeterHitCollectio
+       }
+     }
+   }
+-  std::vector<std::list<std::size_t>> out(nreg);
++  int nout = nreg;
++  if (m_cfg.coreSplitCoreMaxLayer > 0) {
++    // a core region keeps only its hits up to coreSplitCoreMaxLayer (a photon deposits early); deeper hits join the
++    // deep region, created here when the group has no deeper maximum
++    const int deep_id = static_cast<int>(kept.size());
++    for (std::size_t i = 0; i < n; ++i) {
++      const int r = region[i];
++      if (r < 0 || r >= deep_id) {
++        continue;
++      }
++      if (hits[v[i]].getLayer() > m_cfg.coreSplitCoreMaxLayer) {
++        region[i] = deep_id;
++        nout      = deep_id + 1;
++      }
++    }
++  }
++  std::vector<std::list<std::size_t>> out(nout);
+   for (std::size_t i = 0; i < n; ++i) {
+     // a hit no seed reaches (impossible in a connected group) stays with the first region
+     out[region[i] >= 0 ? region[i] : 0].push_back(v[i]);
+diff --git a/src/algorithms/calorimetry/ImagingTopoClusterConfig.h b/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+index ca19fd75..61d84a4d 100644
+--- a/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
++++ b/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+@@ -61,6 +61,8 @@ struct ImagingTopoClusterConfig {
+   double coreSplitSeedEdep  = 0.;
+   int coreSplitMaxLayer     = 8;
+   double coreSplitMinDistXY = 50. * dd4hep::mm;
++  // hits of a core region deeper than this layer join the deep region (0: no limit)
++  int coreSplitCoreMaxLayer = 0;
+ };
+ 
+ std::istream& operator>>(std::istream& in, ImagingTopoClusterConfig::ELayerMode& layerMode) {
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+index 36c6feb0..df79f6d7 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+@@ -235,6 +235,21 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+     if (leaderN_idx >= clusters->size() || E_leader <= 0.0)
+       return 0;
+     n_pos = (*clusters)[leaderN_idx].getPosition();
++    if (m_cfg.neutronPositionCentroid) {
++      // the energy-weighted centroid of the summed clusters: a fragmented shower is better placed than by its leader
++      double sx = 0.0;
++      double sy = 0.0;
++      double sz = 0.0;
++      for (std::size_t idx : kept) {
++        const auto& cl  = (*clusters)[idx];
++        const double E  = cl.getEnergy();
++        const auto& pos = cl.getPosition();
++        sx += E * pos.x;
++        sy += E * pos.y;
++        sz += E * pos.z;
++      }
++      n_pos = {static_cast<float>(sx / E_sum), static_cast<float>(sy / E_sum), static_cast<float>(sz / E_sum)};
++    }
+   } else {
+     return 0;
+   }
+@@ -309,6 +324,9 @@ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+       double raw   = 0.0;
+       double Elead = -1.0;
+       int lead     = -1;
++      double cx    = 0.0;
++      double cy    = 0.0;
++      double cz    = 0.0;
+       for (std::size_t k = 0; k < clusters.size(); ++k) {
+         if (k == cand[ia] || k == cand[ib]) {
+           continue;
+@@ -318,6 +336,10 @@ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+           continue;
+         }
+         raw += E;
++        const auto& pk = clusters[k].getPosition();
++        cx += E * pk.x;
++        cy += E * pk.y;
++        cz += E * pk.z;
+         if (E > Elead) {
+           Elead = E;
+           lead  = static_cast<int>(k);
+@@ -331,7 +353,10 @@ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+         continue;
+       }
+       const double pn = std::sqrt(En * En - m_n * m_n);
+-      const V3 xn     = toProton(clusters[lead].getPosition());
++      const V3 xn     = m_cfg.neutronPositionCentroid
++                                ? toProton(edm4hep::Vector3f{static_cast<float>(cx / raw), static_cast<float>(cy / raw),
++                                                             static_cast<float>(cz / raw)})
++                                : toProton(clusters[lead].getPosition());
+       const V3 x1     = toProton(c1.getPosition());
+       const V3 x2     = toProton(c2.getPosition());
+       // decay vertex: depth by bisection on the opening angle along the momentum-weighted slope (pi0 constraint)
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+index 963e1ab3..1f898e40 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -12,7 +12,7 @@ struct FarForwardNeutralsReconstructionConfig {
+   /** Correction factors for neutrons in the Hcal (ZDC) */
+   std::vector<double> neutronScaleCorrCoeffHcalZDC = {6.214, 0.740};
+   /** Correction factors for gammas in the Hcal (ZDC) */
+-  std::vector<double> gammaScaleCorrCoeffHcalZDC = {4.496, 0.848};
++  std::vector<double> gammaScaleCorrCoeffHcalZDC = {3.952, 0.938};
+   /** Correction factors for neutrons in the LFHCAL */
+   std::vector<double> neutronScaleCorrCoeffLFHCAL = {2.55, 0.95};
+   /** Correction factors for gammas in the LFHCAL */
+@@ -48,6 +48,8 @@ struct FarForwardNeutralsReconstructionConfig {
+   double lambdaPairingLambdaSigma   = 0.04; // GeV, width of the Lambda-mass term (the mass resolution)
+   double lambdaPairingDepthWeight   = 1.5;  // weight of the decay-depth term
+   double lambdaCTau                 = 78.9; // mm, the Lambda's c*tau (PDG)
++  /** ZDC neutron position (SumAll): the energy-weighted centroid of its clusters instead of its leader cluster */
++  bool neutronPositionCentroid = false;
+ };
+ 
+ } // namespace eicrecon
+diff --git a/src/detectors/ZDC/ZDC.cc b/src/detectors/ZDC/ZDC.cc
+index 791b6568..623d59bf 100644
+--- a/src/detectors/ZDC/ZDC.cc
++++ b/src/detectors/ZDC/ZDC.cc
+@@ -204,6 +204,8 @@ void InitPlugin(JApplication* app) {
+           .coreSplitSeedEdep  = 5 * dd4hep::MeV,
+           .coreSplitMaxLayer  = 4,
+           .coreSplitMinDistXY = 50 * dd4hep::mm,
++          // core regions keep their first 5 layers; deeper hits join the shared deep region
++          .coreSplitCoreMaxLayer = 5,
+       },
+       app));
+ 
+diff --git a/src/factories/calorimetry/ImagingTopoCluster_factory.h b/src/factories/calorimetry/ImagingTopoCluster_factory.h
+index 7255ee3c..fe501c9c 100644
+--- a/src/factories/calorimetry/ImagingTopoCluster_factory.h
++++ b/src/factories/calorimetry/ImagingTopoCluster_factory.h
+@@ -49,6 +49,7 @@ private:
+   ParameterRef<double> m_csse{this, "coreSplitSeedEdep", config().coreSplitSeedEdep};
+   ParameterRef<int> m_csml{this, "coreSplitMaxLayer", config().coreSplitMaxLayer};
+   ParameterRef<double> m_csmd{this, "coreSplitMinDistXY", config().coreSplitMinDistXY};
++  ParameterRef<int> m_cscml{this, "coreSplitCoreMaxLayer", config().coreSplitCoreMaxLayer};
+ 
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 
+diff --git a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+index 5bef43f1..21076293 100644
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -84,6 +84,9 @@ private:
+ 
+   ParameterRef<double> m_lambda_ctau{this, "lambdaCTau", config().lambdaCTau};
+ 
++  ParameterRef<bool> m_neutron_position_centroid{this, "neutronPositionCentroid",
++                                                 config().neutronPositionCentroid};
++
+   ParameterRef<double> m_lambda_pairing_lambda_sigma{this, "lambdaPairingLambdaSigma",
+                                                      config().lambdaPairingLambdaSigma};
+ 
+diff --git a/src/global/reco/reco.cc b/src/global/reco/reco.cc
+index 6ed99922..c11ac1cb 100644
+--- a/src/global/reco/reco.cc
++++ b/src/global/reco/reco.cc
+@@ -246,7 +246,7 @@ void InitPlugin(JApplication* app) {
+        "ReconstructedEcalEndcapPNeutrals", "ReconstructedLFHCALNeutrals"},
+       {.offsetPositionName               = "HcalFarForwardZDC_SiPMonTile_r_pos",
+        .neutronScaleCorrCoeffHcalZDC     = {6.214, 0.740},
+-       .gammaScaleCorrCoeffHcalZDC       = {4.496, 0.848},
++       .gammaScaleCorrCoeffHcalZDC       = {3.952, 0.938},
+        .neutronScaleCorrCoeffLFHCAL      = {2.55, 0.95},
+        .gammaScaleCorrCoeffLFHCAL        = {0., 0.},
+        .neutronScaleCorrCoeffB0Ecal      = {0., 0.},
+@@ -262,7 +262,8 @@ void InitPlugin(JApplication* app) {
+        // HcalFarForwardZDC_SiPMonTile_r_pos, the ZDC centre (front face + half the 1832.7 mm length)
+        .gammaZMaxOffset                  = -691.4,
+        .gammaMaxLength                   = 150,
+-       .gammaMaxWidth                    = 12},
++       .gammaMaxWidth                    = 12,
++       .neutronPositionCentroid          = true},
+       app));
+ 
+   app->Add(new JOmniFactoryGeneratorT<LambdaReconstruction_factory>(
+-- 
+2.56.0
+

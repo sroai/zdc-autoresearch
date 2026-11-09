@@ -1,0 +1,69 @@
+From f822e4d0394ed36fcf86656fc800f7a5f88ccfdd Mon Sep 17 00:00:00 2001
+From: Dmitry Romanov <romanovda@gmail.com>
+Date: Sun, 8 Nov 2026 04:28:31 -0500
+Subject: [PATCH] ZDC try X9: photon depth as a soft term of the Lambda pairing
+
+Phase 4 (the Lambda bar fight), experiment X9_pairing_photon_depth, build label X9, on X8 (accepted).
+The ZDC Lambda pairing adds lambdaPairingPhotonDepthWeight (1.0) x (z1 + z2) / 100 mm to each pair's
+score: true photons shower earlier than the neutron fragments that pass the photon box (inside the
+225 mm limit too). scripts/471 on X8's clusters (pairing off, all tagged candidates): 844 / 866 vs
+822 / 855 picks at 150 / 275 GeV (weights 0.5-2 a plateau; the emulation reproduces X8's 1680 matched
+within 3 events); an energy penalty instead loses.
+Prediction: S4a_tm per thrown Lambda -> n pi0 = 7.42 % mean over 100-275 GeV and 14.2 % at 275 GeV
+(X8: 7.271 % / 13.970 %). Judged against X8_core_depth_centroid.
+Verdict: pending (recorded in the next commit on this branch).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/algorithms/reco/FarForwardNeutralsReconstruction.cc      | 5 ++++-
+ src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h | 3 +++
+ .../reco/FarForwardNeutralsReconstruction_factory.h          | 3 +++
+ 3 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+index df79f6d7..09d51678 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+@@ -398,7 +398,10 @@ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+       // the decay-depth density of a Lambda of this momentum, exp(-z/L)/L on [0, zZDC], L = (p/m) c tau
+       const double L     = std::max(p_lambda / m_lambda * m_cfg.lambdaCTau, 1.0);
+       const double depth = z_near / L + std::log(L * std::max(1.0 - std::exp(-m_zZDC / L), 1e-12));
+-      const double score = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth;
++      // the photons' depth in the ZDC (x1, x2 are proton-frame positions; a constant offset does not change the ranking)
++      const double photon_depth = (x1[2] + x2[2] - 2 * m_zZDC) / 100.0;
++      const double score        = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth +
++                           m_cfg.lambdaPairingPhotonDepthWeight * photon_depth;
+       if (score < best_score) {
+         best_score = score;
+         best       = {static_cast<int>(cand[ia]), static_cast<int>(cand[ib])};
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+index 1f898e40..19197a13 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -50,6 +50,9 @@ struct FarForwardNeutralsReconstructionConfig {
+   double lambdaCTau                 = 78.9; // mm, the Lambda's c*tau (PDG)
+   /** ZDC neutron position (SumAll): the energy-weighted centroid of its clusters instead of its leader cluster */
+   bool neutronPositionCentroid = false;
++  /** Lambda pairing: weight of the photons' depth in the ZDC (per 100 mm, summed over the pair); true photons
++      shower earlier than the neutron fragments that pass the photon box */
++  double lambdaPairingPhotonDepthWeight = 1.0;
+ };
+ 
+ } // namespace eicrecon
+diff --git a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+index 21076293..b3b93f64 100644
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -87,6 +87,9 @@ private:
+   ParameterRef<bool> m_neutron_position_centroid{this, "neutronPositionCentroid",
+                                                  config().neutronPositionCentroid};
+ 
++  ParameterRef<double> m_lambda_pairing_photon_depth_weight{this, "lambdaPairingPhotonDepthWeight",
++                                                            config().lambdaPairingPhotonDepthWeight};
++
+   ParameterRef<double> m_lambda_pairing_lambda_sigma{this, "lambdaPairingLambdaSigma",
+                                                      config().lambdaPairingLambdaSigma};
+ 
+-- 
+2.56.0
+

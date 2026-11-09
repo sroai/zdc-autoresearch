@@ -1,0 +1,74 @@
+--- a/src/algorithms/reco/LambdaReconstruction.cc
++++ b/src/algorithms/reco/LambdaReconstruction.cc
+@@ -58,7 +58,10 @@
+     return false;
+   }
+ 
+-  const auto rn  = n_in.getClusters(0).getPosition();
++  // The neutron's position is its reference point (the leader cluster, where its momentum points). Its
++  // first linked cluster is not the neutron's: the ZDC neutrals factory links every cluster of the event
++  // to the neutron (associateAllClustersToNeutron), so getClusters(0) is often a photon's cluster.
++  const auto rn  = n_in.getReferencePoint();
+   const auto rg1 = g1_in.getClusters(0).getPosition();
+   const auto rg2 = g2_in.getClusters(0).getPosition();
+ 
+@@ -70,33 +73,35 @@
+   x1.RotateY(-m_cfg.globalToProtonRotation);
+   x2.RotateY(-m_cfg.globalToProtonRotation);
+ 
+-  TVector3 vtx(0, 0, 0);
+-  double f  = 0.0;
+-  double df = 0.5;
+-
+-  const double theta_open_expected = 2 * std::asin(m_pi0 / (2 * std::sqrt(E1 * E2)));
+-
+-  TLorentzVector n;
+-  TLorentzVector g1;
+-  TLorentzVector g2;
+-  TLorentzVector lambda;
+-
++  // Decay vertex. The Lambda comes from the IP, so at small angles its slope is the momentum-weighted
++  // centroid of the impact points, sum(p_i x_i) / sum(p_i z_i), whatever the decay depth; only the depth
++  // along that line is unknown. The gamma-gamma opening angle grows monotonically as the vertex approaches
++  // the ZDC, so the depth follows by bisection (m_cfg.iterations halvings of [0, zMax]). Iterating the
++  // vertex along a Lambda direction recomputed from the current vertex diverges transversely for decays
++  // far from the IP.
++  const double theta_open_expected =
++      2 * std::asin(std::min(1.0, m_pi0 / (2 * std::sqrt(E1 * E2))));
++  const double wz = pn * xn.Z() + E1 * x1.Z() + E2 * x2.Z();
++  const TVector3 slope((pn * xn.X() + E1 * x1.X() + E2 * x2.X()) / wz,
++                       (pn * xn.Y() + E1 * x1.Y() + E2 * x2.Y()) / wz, 1.0);
++  double z_near = 0.0;
++  double z_far  = m_zMax;
+   for (int i = 0; i < m_cfg.iterations; i++) {
+-    n      = {pn * (xn - vtx).Unit(), En};
+-    g1     = {E1 * (x1 - vtx).Unit(), E1};
+-    g2     = {E2 * (x2 - vtx).Unit(), E2};
+-    lambda = n + g1 + g2;
+-
+-    const double theta_open = g1.Angle(g2.Vect());
+-    if (theta_open > theta_open_expected) {
+-      f -= df;
+-    } else if (theta_open < theta_open_expected) {
+-      f += df;
++    const double z     = 0.5 * (z_near + z_far);
++    const TVector3 v   = slope * z;
++    const double theta = (x1 - v).Angle(x2 - v);
++    if (theta > theta_open_expected) {
++      z_far = z;
++    } else {
++      z_near = z;
+     }
+-
+-    vtx = lambda.Vect() * (f * m_zMax / lambda.Z());
+-    df /= 2.0;
+   }
++  TVector3 vtx = slope * z_near;
++
++  TLorentzVector n{pn * (xn - vtx).Unit(), En};
++  TLorentzVector g1{E1 * (x1 - vtx).Unit(), E1};
++  TLorentzVector g2{E2 * (x2 - vtx).Unit(), E2};
++  TLorentzVector lambda = n + g1 + g2;
+ 
+   const double mass_rec = lambda.M();
+ 

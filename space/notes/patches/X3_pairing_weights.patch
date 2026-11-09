@@ -1,0 +1,75 @@
+From 50018ef8263e5caed7bb97c32be0e8e11bcae4a6 Mon Sep 17 00:00:00 2001
+From: Dmitry Romanov <romanovda@gmail.com>
+Date: Sun, 8 Nov 2026 02:02:03 -0500
+Subject: [PATCH] ZDC try X3: Lambda-pairing ranking weights (mass width 40
+ MeV, depth weight 1.5)
+
+Phase 4 (the Lambda bar fight), experiment X3_pairing_weights, build label X3, on X2 (accepted).
+The ZDC Lambda pairing ranks pairs by (dm_pi0 / 0.1 m_pi0)^2 + (dm_Lambda / sigma)^2 + w * depth term.
+X2 used sigma = 0.1 m_Lambda (111 MeV) and w = 1; X3 uses sigma = 40 MeV (about the mass resolution)
+and w = 1.5, the centre of the plateau of scripts/471's grid on X1's events (sigma 0.03-0.05 GeV,
+w 1-2; 2583 vs 2309 S4a-equivalent picks, +9 to +17 % at every momentum). Both are now parameters
+(lambdaPairingLambdaSigma, lambdaPairingDepthWeight).
+Prediction: S4a_tm per thrown Lambda -> n pi0 = 3.24 % mean over 100-275 GeV and 5.98 % at 275 GeV
+(X2: 2.913 % / 5.500 %, scaled per momentum by the grid). Judged against X2_lambda_pairing.
+Verdict: pending (recorded in the next commit on this branch).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/algorithms/reco/FarForwardNeutralsReconstruction.cc     | 4 ++--
+ .../reco/FarForwardNeutralsReconstructionConfig.h           | 3 ++-
+ .../reco/FarForwardNeutralsReconstruction_factory.h         | 6 ++++++
+ 3 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+index fe04a26b..36c6feb0 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+@@ -369,11 +369,11 @@ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+       const double p_lambda = norm(pl);
+       const double ml       = std::sqrt(std::max(0.0, El * El - p_lambda * p_lambda));
+       const double tpi      = (mpi - m_pi0) / (m_cfg.lambdaPairingPi0Window * m_pi0);
+-      const double tl       = (ml - m_lambda) / (m_cfg.lambdaPairingLambdaWindow * m_lambda);
++      const double tl       = (ml - m_lambda) / m_cfg.lambdaPairingLambdaSigma;
+       // the decay-depth density of a Lambda of this momentum, exp(-z/L)/L on [0, zZDC], L = (p/m) c tau
+       const double L     = std::max(p_lambda / m_lambda * m_cfg.lambdaCTau, 1.0);
+       const double depth = z_near / L + std::log(L * std::max(1.0 - std::exp(-m_zZDC / L), 1e-12));
+-      const double score = tpi * tpi + tl * tl + depth;
++      const double score = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth;
+       if (score < best_score) {
+         best_score = score;
+         best       = {static_cast<int>(cand[ia]), static_cast<int>(cand[ib])};
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+index 0d5a5812..c3abef3e 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -44,7 +44,8 @@ struct FarForwardNeutralsReconstructionConfig {
+   bool lambdaPairingHcalZDC         = true;
+   int lambdaPairingIterations       = 10;
+   double lambdaPairingPi0Window     = 0.1;  // relative, as LambdaReconstruction's pi0Window
+-  double lambdaPairingLambdaWindow  = 0.1;  // relative, as LambdaReconstruction's lambdaMassWindow
++  double lambdaPairingLambdaSigma   = 0.04; // GeV, width of the Lambda-mass term (the mass resolution)
++  double lambdaPairingDepthWeight   = 1.5;  // weight of the decay-depth term
+   double lambdaCTau                 = 78.9; // mm, the Lambda's c*tau (PDG)
+ };
+ 
+diff --git a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+index adb189ad..5bef43f1 100644
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -84,6 +84,12 @@ private:
+ 
+   ParameterRef<double> m_lambda_ctau{this, "lambdaCTau", config().lambdaCTau};
+ 
++  ParameterRef<double> m_lambda_pairing_lambda_sigma{this, "lambdaPairingLambdaSigma",
++                                                     config().lambdaPairingLambdaSigma};
++
++  ParameterRef<double> m_lambda_pairing_depth_weight{this, "lambdaPairingDepthWeight",
++                                                     config().lambdaPairingDepthWeight};
++
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 
+ public:
+-- 
+2.56.0
+

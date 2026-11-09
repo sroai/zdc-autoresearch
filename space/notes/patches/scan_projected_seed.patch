@@ -1,0 +1,158 @@
+diff --git a/src/algorithms/calorimetry/ImagingTopoCluster.cc b/src/algorithms/calorimetry/ImagingTopoCluster.cc
+index 9b441486..c75b63f1 100644
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.cc
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.cc
+@@ -27,6 +27,7 @@
+ #include <edm4hep/utils/vector_utils.h>
+ #include <algorithm>
+ #include <cmath>
++#include <map>
+ #include <cstdlib>
+ #include <stdexcept>
+ #include <tuple>
+@@ -84,6 +85,8 @@ void ImagingTopoCluster::init() {
+   minClusterEdep       = m_cfg.minClusterEdep / dd4hep::GeV;
+   coreSplitSeedEdep    = m_cfg.coreSplitSeedEdep / dd4hep::GeV;
+   coreSplitMinDistXY   = m_cfg.coreSplitMinDistXY / dd4hep::mm;
++  coreSplitProjectedSeedEdep = m_cfg.coreSplitProjectedSeedEdep / dd4hep::GeV;
++  coreSplitProjectionPitch   = m_cfg.coreSplitProjectionPitch / dd4hep::mm;
+ 
+   // same layer clustering parameters
+   switch (m_cfg.sameLayerMode) {
+@@ -333,17 +336,81 @@ void ImagingTopoCluster::core_split_group(const edm4eic::CalorimeterHitCollectio
+       kept.push_back(c);
+     }
+   }
+-  if (kept.empty() || (kept.size() == 1 && deep.empty() && m_cfg.coreSplitCoreMaxLayer <= 0)) {
++  // the hits seeding each core: the core's maximum, or (projected seeding) every shallow hit of its transverse cell
++  std::vector<std::vector<std::size_t>> core_hits;
++  if (coreSplitProjectedSeedEdep > 0.) {
++    // projected seeding: cores are the transverse maxima of the energy summed over the first coreSplitMaxLayer layers,
++    // on a square grid of coreSplitProjectionPitch; a photon's early energy piles up in one column
++    std::map<std::pair<long, long>, std::pair<double, std::vector<std::size_t>>> cells;
++    for (std::size_t i = 0; i < n; ++i) {
++      if (hits[v[i]].getLayer() > m_cfg.coreSplitMaxLayer) {
++        continue;
++      }
++      const auto& p = hits[v[i]].getPosition();
++      auto& cell    = cells[{std::lround(p.x / coreSplitProjectionPitch), std::lround(p.y / coreSplitProjectionPitch)}];
++      cell.first += energy(i);
++      cell.second.push_back(i);
++    }
++    std::vector<std::pair<double, std::pair<long, long>>> maxima;
++    for (const auto& [key, cell] : cells) {
++      if (cell.first < coreSplitProjectedSeedEdep) {
++        continue;
++      }
++      bool maximum = true;
++      for (long dx = -1; dx <= 1 && maximum; ++dx) {
++        for (long dy = -1; dy <= 1; ++dy) {
++          if (dx == 0 && dy == 0) {
++            continue;
++          }
++          const auto it = cells.find({key.first + dx, key.second + dy});
++          if (it != cells.end() && (it->second.first > cell.first ||
++                                    (it->second.first == cell.first && it->first < key))) {
++            maximum = false;
++            break;
++          }
++        }
++      }
++      if (maximum) {
++        maxima.emplace_back(cell.first, key);
++      }
++    }
++    std::sort(maxima.begin(), maxima.end(), [](const auto& a, const auto& b) {
++      return a.first > b.first || (a.first == b.first && a.second < b.second);
++    });
++    std::vector<std::pair<long, long>> kept_keys;
++    for (const auto& [e, key] : maxima) {
++      bool isolated = true;
++      for (const auto& k : kept_keys) {
++        if (std::hypot(static_cast<double>(key.first - k.first), static_cast<double>(key.second - k.second)) *
++                coreSplitProjectionPitch <=
++            coreSplitMinDistXY) {
++          isolated = false;
++          break;
++        }
++      }
++      if (isolated) {
++        kept_keys.push_back(key);
++        core_hits.push_back(cells[key].second);
++      }
++    }
++  } else {
++    for (std::size_t k : kept) {
++      core_hits.push_back({k});
++    }
++  }
++  if (core_hits.empty() || (core_hits.size() == 1 && deep.empty() && m_cfg.coreSplitCoreMaxLayer <= 0)) {
+     regions.push_back(group);
+     return;
+   }
+-  const int nreg = static_cast<int>(kept.size()) + (deep.empty() ? 0 : 1);
++  const int nreg = static_cast<int>(core_hits.size()) + (deep.empty() ? 0 : 1);
+   std::vector<int> region(n, -1);
+-  for (std::size_t k = 0; k < kept.size(); ++k) {
+-    region[kept[k]] = static_cast<int>(k);
++  for (std::size_t k = 0; k < core_hits.size(); ++k) {
++    for (std::size_t i : core_hits[k]) {
++      region[i] = static_cast<int>(k);
++    }
+   }
+   for (std::size_t d : deep) {
+-    region[d] = static_cast<int>(kept.size());
++    region[d] = static_cast<int>(core_hits.size());
+   }
+   // grow the regions in decreasing hit energy: a hit joins the region of its most energetic assigned neighbour;
+   // passes repeat for hits whose more energetic neighbours were not yet assigned
+@@ -375,7 +442,7 @@ void ImagingTopoCluster::core_split_group(const edm4eic::CalorimeterHitCollectio
+   if (m_cfg.coreSplitCoreMaxLayer > 0) {
+     // a core region keeps only its hits up to coreSplitCoreMaxLayer (a photon deposits early); deeper hits join the
+     // deep region, created here when the group has no deeper maximum
+-    const int deep_id = static_cast<int>(kept.size());
++    const int deep_id = static_cast<int>(core_hits.size());
+     for (std::size_t i = 0; i < n; ++i) {
+       const int r = region[i];
+       if (r < 0 || r >= deep_id) {
+diff --git a/src/algorithms/calorimetry/ImagingTopoCluster.h b/src/algorithms/calorimetry/ImagingTopoCluster.h
+index 3efdfdda..be3c1452 100644
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.h
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.h
+@@ -67,6 +67,8 @@ private:
+   double minClusterEdep{0};
+   double coreSplitSeedEdep{0};
+   double coreSplitMinDistXY{0};
++  double coreSplitProjectedSeedEdep{0};
++  double coreSplitProjectionPitch{0};
+ 
+ public:
+   void init();
+diff --git a/src/algorithms/calorimetry/ImagingTopoClusterConfig.h b/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+index 61d84a4d..aac2e108 100644
+--- a/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
++++ b/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+@@ -63,6 +63,10 @@ struct ImagingTopoClusterConfig {
+   double coreSplitMinDistXY = 50. * dd4hep::mm;
+   // hits of a core region deeper than this layer join the deep region (0: no limit)
+   int coreSplitCoreMaxLayer = 0;
++  // projected core seeding (0: the single-hit maxima above): cores are the transverse maxima, on a square grid of
++  // coreSplitProjectionPitch, of the energy summed over the first coreSplitMaxLayer layers, of at least this energy
++  double coreSplitProjectedSeedEdep = 0.;
++  double coreSplitProjectionPitch   = 24.4 * dd4hep::mm;
+ };
+ 
+ std::istream& operator>>(std::istream& in, ImagingTopoClusterConfig::ELayerMode& layerMode) {
+diff --git a/src/factories/calorimetry/ImagingTopoCluster_factory.h b/src/factories/calorimetry/ImagingTopoCluster_factory.h
+index fe501c9c..de5b4b38 100644
+--- a/src/factories/calorimetry/ImagingTopoCluster_factory.h
++++ b/src/factories/calorimetry/ImagingTopoCluster_factory.h
+@@ -50,6 +50,8 @@ private:
+   ParameterRef<int> m_csml{this, "coreSplitMaxLayer", config().coreSplitMaxLayer};
+   ParameterRef<double> m_csmd{this, "coreSplitMinDistXY", config().coreSplitMinDistXY};
+   ParameterRef<int> m_cscml{this, "coreSplitCoreMaxLayer", config().coreSplitCoreMaxLayer};
++  ParameterRef<double> m_cspse{this, "coreSplitProjectedSeedEdep", config().coreSplitProjectedSeedEdep};
++  ParameterRef<double> m_cspp{this, "coreSplitProjectionPitch", config().coreSplitProjectionPitch};
+ 
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 

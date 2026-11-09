@@ -1,0 +1,89 @@
+# Phase 4 (zdc-autoresearch-loop-v4.md, D-user-33), written 2026-11-08T05:21Z; the Phase 3 list is space/FROZEN.phase3.
+# Prefixes relative to the repository root; `!` marks an exception. Read by .claude/hooks/protect.py.
+# EICrecon is open except the fair-play files (F2 digitization, F4 the CoG step that writes the
+# cluster<->MC associations the scorer reads), with their Config.h and factory headers for safety.
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterClusterRecoCoG.cc
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterClusterRecoCoG.h
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterClusterRecoCoGConfig.h
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterHitDigi.cc
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterHitDigi.h
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterHitDigiConfig.h
+submodules/EICrecon/src/factories/calorimetry/CalorimeterClusterRecoCoG_factory.h
+submodules/EICrecon/src/factories/calorimetry/CalorimeterHitDigi_factory.h
+# The scorer and data files (F4) and the ruler scripts of Phases 0-3:
+submodules/detector_benchmarks
+submodules/epic-capybara
+submodules/meson-structure
+submodules/skill-eicrecon
+configs/datasets.yaml
+configs/metrics.yaml
+configs/local.yaml
+configs/ifarm.yaml
+configs/experiments/R0_stock.yaml
+configs/experiments/R1_pr3064.yaml
+scripts/130_compare_collections.py
+scripts/131_prove_gates.sh
+scripts/400_scoreboard.py
+scripts/410_truth_match.py
+scripts/700_benchmarks
+space/perf/manifest-datasets.json
+space/perf/references.json
+space/perf/noise-validation.json
+zdc-setup.md
+work-common.md
+zdc-autoresearch-loop-v2.md
+zdc/edm.py
+zdc/config.py
+scripts/121_manifest.py
+scripts/133_switch_tests.sh
+scripts/200_cluster_distributions.py
+scripts/401_benchmark_plots.sh
+scripts/403_benchmark_entries.py
+scripts/404_noise_validation.py
+scripts/412_lambda_ceiling.py
+scripts/420_refit_calibration.py
+scripts/430_shape_decayz.py
+scripts/405_heldout_check.py
+scripts/413_lambda_gun_acceptance.py
+scripts/414_lambda_ceiling_variants.py
+zdc-autoresearch-loop-v3.md
+# Added for Phase 4 (F4): the offline chain, the paired test, the headline
+scripts/415_lambda_chain_offline.py
+scripts/417_lambda_family_paired.py
+scripts/441_headline.py
+# Step 0 closes -> zdc-autoresearch-loop-v4.md and scripts/460_fair_play.py are added below:
+# D-default-43: the ClusterShape step passes the CoG's associations through to the collection 410 reads
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterClusterShape.cc
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterClusterShape.h
+submodules/EICrecon/src/algorithms/calorimetry/CalorimeterClusterShapeConfig.h
+submodules/EICrecon/src/factories/calorimetry/CalorimeterClusterShape_factory.h
+# Step 0 closed 2026-11-08T06:35Z: every F1-F3 clause seen to fail on a damaged control (space/reports/phase4_bar_fight.md)
+zdc-autoresearch-loop-v4.md
+scripts/460_fair_play.py
+scripts/461_phase4_verdict.py
+# D-user-38 (2026-11-08T15:54Z, user, chat: "Yes, add them"): the two meson-structure-2026-11 MSF datasets are appended
+# to configs/datasets.yaml and get their manifest section; existing entries stay as they are. Both exceptions are
+# removed when the registration is done.
+# 2026-11-08T15:57Z: datasets.yaml entries D6c_9x130 and D6c_9x275 appended; its exception removed.
+# 2026-11-08T18:52Z: manifest sections msf-D6c_9x130 and msf-D6c_9x275 written by 112 (80 + 80 files, 500 events each); its exception removed.
+# Phase 5 Step 0 item 1 (D-user-39, loop v5), 2026-11-08T22:30Z: the search / held-out halves D6s / D6h of D6c are appended to
+# configs/datasets.yaml and get their manifest sections; both exceptions are removed when the registration is done.
+# 2026-11-08T22:34Z: D6s_9x275, D6h_9x275, D6s_9x130, D6h_9x130 appended and registered (112 --max-files 40 [--skip 40]: 40 files each); both exceptions removed.
+# Phase 5 Step 0 item 5 (loop v5, D-user-39), 2026-11-08T23:26Z: every check of the ruler seen to fail on a damaged control
+# (space/reports/phase5_msf.md, Step 0 record); the loop file, the scorer, the selector and the patch scan are frozen.
+zdc-autoresearch-loop-v5.md
+scripts/210_msf_lambda_regimes.py
+scripts/463_msf_select.py
+scripts/464_phase5_controls.py
+scripts/465_patch_scan.py
+# D-user-40 (2026-11-09T00:30Z, user, chat: "Yes, add the gun", Q19 A): the B0 photon gun D2b_photon_B0 is appended to
+# configs/datasets.yaml and 110 rewrites the gun section of the manifest; both exceptions are removed when the gun is generated.
+# 2026-11-09T00:51Z: D2b_photon_B0 generated (5 × 1000 events) and in the guns section of the manifest; both exceptions removed.
+# D-user-42 (2026-11-09T04:14Z, user, chat: "Yes, add the gun", Q20 A): the low-energy ZDC photon gun D2c_photon_low is appended to
+# configs/datasets.yaml and 110 rewrites the guns section of the manifest (every gun on disk); both exceptions are removed
+# when the gun is generated.
+# 2026-11-09T04:21Z: D2c_photon_low generated (3 × 1000 events) and in the guns section (94 entries, the 88 earlier ones unchanged); both exceptions removed.
+# Phase 6 Step 0 item 5 (loop v6), 2026-11-09T04:55Z: the loop file and the crystal F3 check 468 are frozen (468 proven: PASS on the base
+# row MSF6_Y9, FAIL on the damage controls share and budget; space/reports/phase6_crystal.md, Step 0 record).
+zdc-autoresearch-loop-v6.md
+scripts/468_crystal_f3.py

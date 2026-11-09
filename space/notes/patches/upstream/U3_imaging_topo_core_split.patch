@@ -1,0 +1,218 @@
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.cc
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.cc
+@@ -25,6 +25,7 @@
+ #include <Evaluator/DD4hepUnits.h>
+ #include <edm4hep/Vector3f.h>
+ #include <edm4hep/utils/vector_utils.h>
++#include <algorithm>
+ #include <cmath>
+ #include <cstdlib>
+ #include <stdexcept>
+@@ -81,6 +82,8 @@
+   minClusterHitEdep    = m_cfg.minClusterHitEdep / dd4hep::GeV;
+   minClusterCenterEdep = m_cfg.minClusterCenterEdep / dd4hep::GeV;
+   minClusterEdep       = m_cfg.minClusterEdep / dd4hep::GeV;
++  coreSplitSeedEdep    = m_cfg.coreSplitSeedEdep / dd4hep::GeV;
++  coreSplitMinDistXY   = m_cfg.coreSplitMinDistXY / dd4hep::mm;
+ 
+   // same layer clustering parameters
+   switch (m_cfg.sameLayerMode) {
+@@ -258,10 +261,140 @@
+     if (energy < minClusterEdep) {
+       continue;
+     }
+-    auto pcl = proto->create();
+-    for (std::size_t idx : group) {
+-      pcl.addToHits((*hits)[idx]);
+-      pcl.addToWeights(1);
++    // a saved group is split between its photon cores and the rest when coreSplitSeedEdep > 0
++    std::vector<std::list<std::size_t>> regions;
++    if (coreSplitSeedEdep > 0.) {
++      core_split_group(*hits, group, regions);
++    } else {
++      regions.push_back(group);
++    }
++    for (const auto& region : regions) {
++      auto pcl = proto->create();
++      for (std::size_t idx : region) {
++        pcl.addToHits((*hits)[idx]);
++        pcl.addToWeights(1);
++      }
++    }
++  }
++}
++
++void ImagingTopoCluster::core_split_group(const edm4eic::CalorimeterHitCollection& hits,
++                                          const std::list<std::size_t>& group,
++                                          std::vector<std::list<std::size_t>>& regions) const {
++  const std::vector<std::size_t> v(group.begin(), group.end());
++  const std::size_t n = v.size();
++  auto energy         = [&](std::size_t i) { return hits[v[i]].getEnergy(); };
++  // more energetic, ties broken by position in the group, so that the order is total
++  auto above = [&](std::size_t i, std::size_t j) {
++    return energy(i) > energy(j) || (energy(i) == energy(j) && i < j);
++  };
++  std::vector<std::vector<std::size_t>> nb(n);
++  for (std::size_t i = 0; i < n; ++i) {
++    for (std::size_t j = i + 1; j < n; ++j) {
++      if (is_neighbour(hits[v[i]], hits[v[j]])) {
++        nb[i].push_back(j);
++        nb[j].push_back(i);
++      }
++    }
++  }
++  // local maxima above the seed energy: shallow ones are core candidates, deeper ones seed the shared region
++  std::vector<std::size_t> cores;
++  std::vector<std::size_t> deep;
++  for (std::size_t i = 0; i < n; ++i) {
++    if (energy(i) < coreSplitSeedEdep) {
++      continue;
++    }
++    bool maximum = true;
++    for (std::size_t j : nb[i]) {
++      if (above(j, i)) {
++        maximum = false;
++        break;
++      }
++    }
++    if (!maximum) {
++      continue;
++    }
++    (hits[v[i]].getLayer() <= m_cfg.coreSplitMaxLayer ? cores : deep).push_back(i);
++  }
++  // one core per transverse neighbourhood: the most energetic wins
++  std::sort(cores.begin(), cores.end(), above);
++  std::vector<std::size_t> kept;
++  for (std::size_t c : cores) {
++    bool isolated = true;
++    for (std::size_t k : kept) {
++      const auto& pc = hits[v[c]].getPosition();
++      const auto& pk = hits[v[k]].getPosition();
++      if (std::hypot(pc.x - pk.x, pc.y - pk.y) <= coreSplitMinDistXY) {
++        isolated = false;
++        break;
++      }
++    }
++    if (isolated) {
++      kept.push_back(c);
++    }
++  }
++  if (kept.empty() || (kept.size() == 1 && deep.empty() && m_cfg.coreSplitCoreMaxLayer <= 0)) {
++    regions.push_back(group);
++    return;
++  }
++  const int nreg = static_cast<int>(kept.size()) + (deep.empty() ? 0 : 1);
++  std::vector<int> region(n, -1);
++  for (std::size_t k = 0; k < kept.size(); ++k) {
++    region[kept[k]] = static_cast<int>(k);
++  }
++  for (std::size_t d : deep) {
++    region[d] = static_cast<int>(kept.size());
++  }
++  // grow the regions in decreasing hit energy: a hit joins the region of its most energetic assigned neighbour;
++  // passes repeat for hits whose more energetic neighbours were not yet assigned
++  std::vector<std::size_t> order(n);
++  for (std::size_t i = 0; i < n; ++i) {
++    order[i] = i;
++  }
++  std::sort(order.begin(), order.end(), above);
++  bool progress = true;
++  while (progress) {
++    progress = false;
++    for (std::size_t i : order) {
++      if (region[i] >= 0) {
++        continue;
++      }
++      int best_j = -1;
++      for (std::size_t j : nb[i]) {
++        if (region[j] >= 0 && (best_j < 0 || above(j, static_cast<std::size_t>(best_j)))) {
++          best_j = static_cast<int>(j);
++        }
++      }
++      if (best_j >= 0) {
++        region[i] = region[best_j];
++        progress  = true;
++      }
++    }
++  }
++  int nout = nreg;
++  if (m_cfg.coreSplitCoreMaxLayer > 0) {
++    // a core region keeps only its hits up to coreSplitCoreMaxLayer (a photon deposits early); deeper hits join the
++    // deep region, created here when the group has no deeper maximum
++    const int deep_id = static_cast<int>(kept.size());
++    for (std::size_t i = 0; i < n; ++i) {
++      const int r = region[i];
++      if (r < 0 || r >= deep_id) {
++        continue;
++      }
++      if (hits[v[i]].getLayer() > m_cfg.coreSplitCoreMaxLayer) {
++        region[i] = deep_id;
++        nout      = deep_id + 1;
++      }
++    }
++  }
++  std::vector<std::list<std::size_t>> out(nout);
++  for (std::size_t i = 0; i < n; ++i) {
++    // a hit no seed reaches (impossible in a connected group) stays with the first region
++    out[region[i] >= 0 ? region[i] : 0].push_back(v[i]);
++  }
++  for (auto& r : out) {
++    if (!r.empty()) {
++      regions.push_back(std::move(r));
+     }
+   }
+ }
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.h
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.h
+@@ -65,6 +65,8 @@
+   double minClusterHitEdep{0};
+   double minClusterCenterEdep{0};
+   double minClusterEdep{0};
++  double coreSplitSeedEdep{0};
++  double coreSplitMinDistXY{0};
+ 
+ public:
+   void init();
+@@ -74,6 +76,10 @@
+   // helper function to group hits
+   bool is_neighbour(const edm4eic::CalorimeterHit& h1, const edm4eic::CalorimeterHit& h2) const;
+ 
++  // photon-core split of one saved group (coreSplitSeedEdep > 0); appends one hit list per region
++  void core_split_group(const edm4eic::CalorimeterHitCollection& hits, const std::list<std::size_t>& group,
++                        std::vector<std::list<std::size_t>>& regions) const;
++
+   // grouping function with Breadth-First Search
+   // note: template to allow Compare only known in local scope of caller
+   template <typename Compare>
+--- a/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
++++ b/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+@@ -53,6 +53,16 @@
+   double minClusterEdep = 0.5 * dd4hep::MeV;
+   // minimum number of hits (to save this cluster)
+   std::size_t minClusterNhits = 10;
++  // photon-core split (coreSplitSeedEdep 0 disables it): a saved group is split between its shallow energy cores and
++  // the rest. Cores are local energy maxima of at least coreSplitSeedEdep in layers up to coreSplitMaxLayer, keeping
++  // the more energetic of any two closer than coreSplitMinDistXY in the transverse plane; every deeper maximum of at
++  // least coreSplitSeedEdep seeds one shared region. Hits join the region of their most energetic neighbour, in
++  // decreasing hit energy. A group without a core, or with one core and no deeper maximum, is kept whole.
++  double coreSplitSeedEdep  = 0.;
++  int coreSplitMaxLayer     = 8;
++  double coreSplitMinDistXY = 50. * dd4hep::mm;
++  // hits of a core region deeper than this layer join the deep region (0: no limit)
++  int coreSplitCoreMaxLayer = 0;
+ };
+ 
+ std::istream& operator>>(std::istream& in, ImagingTopoClusterConfig::ELayerMode& layerMode) {
+--- a/src/factories/calorimetry/ImagingTopoCluster_factory.h
++++ b/src/factories/calorimetry/ImagingTopoCluster_factory.h
+@@ -46,6 +46,10 @@
+   ParameterRef<double> m_mcced{this, "minClusterCenterEdep", config().minClusterCenterEdep};
+   ParameterRef<double> m_mced{this, "minClusterEdep", config().minClusterEdep};
+   ParameterRef<std::size_t> m_mcnh{this, "minClusterNhits", config().minClusterNhits};
++  ParameterRef<double> m_csse{this, "coreSplitSeedEdep", config().coreSplitSeedEdep};
++  ParameterRef<int> m_csml{this, "coreSplitMaxLayer", config().coreSplitMaxLayer};
++  ParameterRef<double> m_csmd{this, "coreSplitMinDistXY", config().coreSplitMinDistXY};
++  ParameterRef<int> m_cscml{this, "coreSplitCoreMaxLayer", config().coreSplitCoreMaxLayer};
+ 
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 

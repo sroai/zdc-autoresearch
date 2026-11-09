@@ -1,0 +1,318 @@
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+index 09d51678..a55788d4 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+@@ -80,7 +80,8 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+     const std::vector<double>& gammaScaleCoeff, const std::vector<double>& neutronScaleCoeff,
+     bool canDetectGammas, bool canDetectNeutrons, const CorrFunc& gammaCorr,
+     const CorrFunc& neutronCorr, GammaMode gammaMode, double gammaLeaderFracMin, double clusterEmin,
+-    NeutronMode neutronMode, bool associateAllClustersToNeutron, bool lambdaPairing) const {
++    NeutronMode neutronMode, bool associateAllClustersToNeutron, bool lambdaPairing,
++    const std::vector<ExternalPhoton>* external) const {
+ 
+   (void)gammaLeaderFracMin;
+ 
+@@ -143,8 +144,7 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+         idx, [&](int a, int b) { return (*clusters)[a].getEnergy() > (*clusters)[b].getEnergy(); });
+ 
+     // Keep only the leading clusters in order to limit combinatorial
+-    const size_t Nkeep = 4;
+-    for (size_t k = 0; k < std::min(Nkeep, idx.size()); ++k) {
++    for (size_t k = 0; k < std::min(kLeadingGammas, idx.size()); ++k) {
+       const auto& cl = (*clusters)[idx[k]];
+       makeGamma(cl);
+       gamma_used.push_back(cl.getObjectID());
+@@ -162,12 +162,16 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+       }
+     }
+     // Lambda pairing: of the tagged clusters keep the pair that best fits Lambda -> n gamma gamma; the other
+-    // tagged clusters stay with the neutron. Without a fittable pair every tagged cluster stays a photon.
+-    if (lambdaPairing && canDetectNeutrons && cand.size() > 2) {
++    // tagged clusters stay with the neutron. Without a fittable pair every tagged cluster stays a photon. With
++    // external photons (B0 ECal) a hypothesis may use one tagged cluster only: then it alone is a photon here.
++    const bool with_external = (external != nullptr) && !external->empty();
++    if (lambdaPairing && canDetectNeutrons && (cand.size() > 2 || (with_external && cand.size() == 2))) {
+       const auto [a, b] = chooseLambdaPhotonPair(*clusters, cand, gammaScaleCoeff, neutronScaleCoeff,
+-                                                 gammaCorr, neutronCorr, clusterEmin);
++                                                 gammaCorr, neutronCorr, clusterEmin, external);
+       if (a >= 0 && b >= 0) {
+         cand = {static_cast<std::size_t>(a), static_cast<std::size_t>(b)};
++      } else if (a >= 0 && b == kMixed) {
++        cand = {static_cast<std::size_t>(a)};
+       }
+     }
+     for (std::size_t i : cand) {
+@@ -285,7 +289,8 @@ int FarForwardNeutralsReconstruction::processNeutralCalo(
+ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+     const edm4eic::ClusterCollection& clusters, const std::vector<std::size_t>& cand,
+     const std::vector<double>& gammaScaleCoeff, const std::vector<double>& neutronScaleCoeff,
+-    const CorrFunc& gammaCorr, const CorrFunc& neutronCorr, double clusterEmin) const {
++    const CorrFunc& gammaCorr, const CorrFunc& neutronCorr, double clusterEmin,
++    const std::vector<ExternalPhoton>* external) const {
+   const double m_n      = m_particleSvc.particle(2112).mass;
+   const double m_pi0    = m_particleSvc.particle(111).mass;
+   const double m_lambda = m_particleSvc.particle(3122).mass;
+@@ -408,6 +413,123 @@ std::pair<int, int> FarForwardNeutralsReconstruction::chooseLambdaPhotonPair(
+       }
+     }
+   }
++  // Mixed hypotheses: one tagged ZDC cluster with one external (B0 ECal) photon. The neutron is every other ZDC
++  // cluster above clusterEmin. The impact points lie at different depths (B0 ~7 m, ZDC ~36 m), so the slope of the
++  // Lambda line for a vertex at depth z is sum(w_i x_i,perp) / (P + z sum(w_i)), w_i = p_i / (z_i - z) (small angles),
++  // recomputed at each bisection step, and the depth stays short of the nearest impact point. The photon-depth term
++  // counts the single ZDC photon lambdaPairingMixedPhotonDepthFactor times (the pair term sums two photons).
++  if (external != nullptr && !external->empty()) {
++    for (std::size_t ia = 0; ia < cand.size(); ++ia) {
++      const auto& c1  = clusters[cand[ia]];
++      const double E1 = gammaCorr(c1.getEnergy(), gammaScaleCoeff);
++      if (E1 <= 0.0) {
++        continue;
++      }
++      double raw   = 0.0;
++      double Elead = -1.0;
++      int lead     = -1;
++      double cx    = 0.0;
++      double cy    = 0.0;
++      double cz    = 0.0;
++      for (std::size_t k = 0; k < clusters.size(); ++k) {
++        if (k == cand[ia]) {
++          continue;
++        }
++        const double E = clusters[k].getEnergy();
++        if (E < clusterEmin) {
++          continue;
++        }
++        raw += E;
++        const auto& pk = clusters[k].getPosition();
++        cx += E * pk.x;
++        cy += E * pk.y;
++        cz += E * pk.z;
++        if (E > Elead) {
++          Elead = E;
++          lead  = static_cast<int>(k);
++        }
++      }
++      if (lead < 0 || raw <= 0.0) {
++        continue;
++      }
++      const double En = neutronCorr(raw, neutronScaleCoeff);
++      if (En <= m_n) {
++        continue;
++      }
++      const double pn = std::sqrt(En * En - m_n * m_n);
++      const V3 xn     = m_cfg.neutronPositionCentroid
++                            ? toProton(edm4hep::Vector3f{static_cast<float>(cx / raw), static_cast<float>(cy / raw),
++                                                         static_cast<float>(cz / raw)})
++                            : toProton(clusters[lead].getPosition());
++      const V3 x1 = toProton(c1.getPosition());
++      for (const auto& ext : *external) {
++        const double E2 = ext.energy;
++        if (E2 <= 0.0) {
++          continue;
++        }
++        const V3 x2            = toProton(ext.position);
++        const double z_first   = std::min({xn[2], x1[2], x2[2]});
++        if (z_first <= 0.0) {
++          continue;
++        }
++        const std::array<std::pair<double, const V3*>, 3> impacts{{{pn, &xn}, {E1, &x1}, {E2, &x2}}};
++        const double p_sum = pn + E1 + E2;
++        auto slope_at      = [&](double z) {
++          double sx = 0.0;
++          double sy = 0.0;
++          double sw = 0.0;
++          for (const auto& [p, x] : impacts) {
++            const double w = p / ((*x)[2] - z);
++            sx += w * (*x)[0];
++            sy += w * (*x)[1];
++            sw += w;
++          }
++          const double den = p_sum + z * sw;
++          return V3{sx / den, sy / den, 1.0};
++        };
++        const double th_exp = 2 * std::asin(std::min(1.0, m_pi0 / (2 * std::sqrt(E1 * E2))));
++        double z_near       = 0.0;
++        double z_far        = std::min(m_zZDC, 0.999 * z_first);
++        for (int it = 0; it < m_cfg.lambdaPairingIterations; ++it) {
++          const double z = 0.5 * (z_near + z_far);
++          const V3 s     = slope_at(z);
++          const V3 v{s[0] * z, s[1] * z, z};
++          if (angle(sub(x1, v), sub(x2, v)) > th_exp) {
++            z_far = z;
++          } else {
++            z_near = z;
++          }
++        }
++        const V3 s = slope_at(z_near);
++        const V3 v{s[0] * z_near, s[1] * z_near, z_near};
++        const V3 un = unit(sub(xn, v));
++        const V3 u1 = unit(sub(x1, v));
++        const V3 u2 = unit(sub(x2, v));
++        V3 pg{};
++        V3 pl{};
++        for (int q = 0; q < 3; ++q) {
++          pg[q] = E1 * u1[q] + E2 * u2[q];
++          pl[q] = pg[q] + pn * un[q];
++        }
++        const double Eg       = E1 + E2;
++        const double El       = En + E1 + E2;
++        const double mpi      = std::sqrt(std::max(0.0, Eg * Eg - (pg[0] * pg[0] + pg[1] * pg[1] + pg[2] * pg[2])));
++        const double p_lambda = norm(pl);
++        const double ml       = std::sqrt(std::max(0.0, El * El - p_lambda * p_lambda));
++        const double tpi      = (mpi - m_pi0) / (m_cfg.lambdaPairingPi0Window * m_pi0);
++        const double tl       = (ml - m_lambda) / m_cfg.lambdaPairingLambdaSigma;
++        const double L        = std::max(p_lambda / m_lambda * m_cfg.lambdaCTau, 1.0);
++        const double depth = z_near / L + std::log(L * std::max(1.0 - std::exp(-m_zZDC / L), 1e-12));
++        const double photon_depth = m_cfg.lambdaPairingMixedPhotonDepthFactor * (x1[2] - m_zZDC) / 100.0;
++        const double score        = tpi * tpi + tl * tl + m_cfg.lambdaPairingDepthWeight * depth +
++                             m_cfg.lambdaPairingPhotonDepthWeight * photon_depth;
++        if (score < best_score) {
++          best_score = score;
++          best       = {static_cast<int>(cand[ia]), kMixed};
++        }
++      }
++    }
++  }
+   return best;
+ }
+ 
+@@ -422,6 +544,25 @@ void FarForwardNeutralsReconstruction::process(
+   // Global
+   int n_neutrons = 0;
+ 
++  // B0-Ecal photon candidates for the ZDC Lambda pairing: the B0 neutrals' LeaderOnly set (the leading clusters
++  // above clusterEminB0Ecal), with the B0 photon energy law
++  std::vector<ExternalPhoton> external_b0;
++  if (m_cfg.lambdaPairingHcalZDC && m_cfg.lambdaPairingMixed && clustersB0 != nullptr) {
++    std::vector<std::size_t> idx;
++    for (std::size_t i = 0; i < clustersB0->size(); ++i) {
++      if ((*clustersB0)[i].getEnergy() >= m_cfg.clusterEminB0Ecal) {
++        idx.push_back(i);
++      }
++    }
++    std::ranges::sort(idx, [&](std::size_t a, std::size_t b) {
++      return (*clustersB0)[a].getEnergy() > (*clustersB0)[b].getEnergy();
++    });
++    for (std::size_t k = 0; k < std::min(kLeadingGammas, idx.size()); ++k) {
++      const auto& cl = (*clustersB0)[idx[k]];
++      external_b0.push_back({corrPower(cl.getEnergy(), m_cfg.gammaScaleCorrCoeffB0Ecal), cl.getPosition()});
++    }
++  }
++
+   // ZDC-Hcal
+   n_neutrons += processNeutralCalo(clustersHcal, out_neutralsHcal,
+                                    /*gammaScaleCoeff=*/m_cfg.gammaScaleCorrCoeffHcalZDC,
+@@ -435,7 +576,8 @@ void FarForwardNeutralsReconstruction::process(
+                                    /*clusterEmin=*/m_cfg.clusterEminHcalZDC,
+                                    /*neutronMode=*/NeutronMode::SumAll,
+                                    /*associateAllClustersToNeutron=*/true,
+-                                   /*lambdaPairing=*/m_cfg.lambdaPairingHcalZDC);
++                                   /*lambdaPairing=*/m_cfg.lambdaPairingHcalZDC,
++                                   /*external=*/&external_b0);
+ 
+   // B0-Ecal
+   n_neutrons += processNeutralCalo(clustersB0, out_neutralsB0,
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstruction.h b/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+index 585d3462..20807242 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+@@ -7,6 +7,7 @@
+ #include <algorithms/geo.h>
+ #include <edm4eic/ClusterCollection.h>
+ #include <edm4eic/ReconstructedParticleCollection.h>
++#include <edm4hep/Vector3f.h>
+ #include <spdlog/logger.h>
+ #include <gsl/pointers>
+ #include <memory>
+@@ -85,6 +86,19 @@ private:
+ 
+   static double corrPower(double E, const std::vector<double>& coeffs);
+ 
++  /** LeaderOnly photons: the leading clusters kept per calorimeter */
++  static constexpr std::size_t kLeadingGammas = 4;
++
++  /** A photon candidate of another calorimeter (the B0 ECal) offered to the ZDC Lambda pairing: its corrected
++      energy and its cluster position (lab frame, mm) */
++  struct ExternalPhoton {
++    double energy;
++    edm4hep::Vector3f position;
++  };
++
++  /** chooseLambdaPhotonPair's second index when the winning hypothesis pairs one ZDC cluster with an external photon */
++  static constexpr int kMixed = -2;
++
+   int processNeutralCalo(const edm4eic::ClusterCollection* clusters,
+                          edm4eic::ReconstructedParticleCollection* out_neutrals,
+                          const std::vector<double>& gammaScaleCoeff,
+@@ -92,16 +106,20 @@ private:
+                          bool canDetectNeutrons, const CorrFunc& gammaCorr,
+                          const CorrFunc& neutronCorr, GammaMode gammaMode,
+                          double gammaLeaderFracMin, double clusterEmin, NeutronMode neutronMode,
+-                         bool associateAllClustersToNeutron, bool lambdaPairing = false) const;
++                         bool associateAllClustersToNeutron, bool lambdaPairing = false,
++                         const std::vector<ExternalPhoton>* external = nullptr) const;
+ 
+   /** Among the photon candidates `cand` (cluster indices), the pair that best fits Lambda -> n gamma gamma with the
+-      neutron made of every other cluster above clusterEmin; {-1, -1} when no pair can be fitted. */
++      neutron made of every other cluster above clusterEmin; {-1, -1} when no pair can be fitted. With `external`
++      photons, every candidate paired with each external photon is a hypothesis too; if one wins, the result is
++      {its cluster index, kMixed}. */
+   std::pair<int, int> chooseLambdaPhotonPair(const edm4eic::ClusterCollection& clusters,
+                                              const std::vector<std::size_t>& cand,
+                                              const std::vector<double>& gammaScaleCoeff,
+                                              const std::vector<double>& neutronScaleCoeff,
+                                              const CorrFunc& gammaCorr, const CorrFunc& neutronCorr,
+-                                             double clusterEmin) const;
++                                             double clusterEmin,
++                                             const std::vector<ExternalPhoton>* external = nullptr) const;
+   double m_zZDC{35800}; // mm, the ZDC depth (offsetPositionName), as LambdaReconstruction's zMax
+ };
+ 
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+index 19197a13..89c58f87 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -53,6 +53,13 @@ struct FarForwardNeutralsReconstructionConfig {
+   /** Lambda pairing: weight of the photons' depth in the ZDC (per 100 mm, summed over the pair); true photons
+       shower earlier than the neutron fragments that pass the photon box */
+   double lambdaPairingPhotonDepthWeight = 1.0;
++  /** Lambda pairing with a photon in the B0 ECal: beside the ZDC photon pairs, every tagged ZDC cluster with each B0
++      photon candidate (the B0 neutrals' leading clusters) is fitted as Lambda -> n gamma gamma, the vertex slope taken
++      with each daughter's lever arm (B0 at ~7 m, the ZDC at ~36 m). If such a hypothesis wins, only its ZDC cluster is
++      a ZDC photon; LambdaReconstruction pairs it with the B0 photon. */
++  bool lambdaPairingMixed = false;
++  /** Mixed hypotheses: factor on the single ZDC photon's depth term (the pair term sums two photons) */
++  double lambdaPairingMixedPhotonDepthFactor = 3.0;
+ };
+ 
+ } // namespace eicrecon
+diff --git a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+index b3b93f64..66a99bae 100644
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -96,6 +96,11 @@ private:
+   ParameterRef<double> m_lambda_pairing_depth_weight{this, "lambdaPairingDepthWeight",
+                                                      config().lambdaPairingDepthWeight};
+ 
++  ParameterRef<bool> m_lambda_pairing_mixed{this, "lambdaPairingMixed", config().lambdaPairingMixed};
++
++  ParameterRef<double> m_lambda_pairing_mixed_photon_depth_factor{
++      this, "lambdaPairingMixedPhotonDepthFactor", config().lambdaPairingMixedPhotonDepthFactor};
++
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 
+ public:
+diff --git a/src/global/reco/reco.cc b/src/global/reco/reco.cc
+index c11ac1cb..555c608b 100644
+--- a/src/global/reco/reco.cc
++++ b/src/global/reco/reco.cc
+@@ -263,7 +263,8 @@ void InitPlugin(JApplication* app) {
+        .gammaZMaxOffset                  = -691.4,
+        .gammaMaxLength                   = 150,
+        .gammaMaxWidth                    = 12,
+-       .neutronPositionCentroid          = true},
++       .neutronPositionCentroid          = true,
++       .lambdaPairingMixed               = true},
+       app));
+ 
+   app->Add(new JOmniFactoryGeneratorT<LambdaReconstruction_factory>(

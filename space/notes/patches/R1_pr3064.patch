@@ -1,0 +1,75 @@
+diff --git a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+index 1c3f40d3..37a7cc5e 100644
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -10,9 +10,9 @@ struct FarForwardNeutralsReconstructionConfig {
+   /** detector constant describing distance to the ZDC */
+   std::string offsetPositionName = "HcalFarForwardZDC_SiPMonTile_r_pos";
+   /** Correction factors for neutrons in the Hcal (ZDC) */
+-  std::vector<double> neutronScaleCorrCoeffHcalZDC = {2.4, 0.89};
++  std::vector<double> neutronScaleCorrCoeffHcalZDC = {16.65, 0.66};
+   /** Correction factors for gammas in the Hcal (ZDC) */
+-  std::vector<double> gammaScaleCorrCoeffHcalZDC = {1.1, 0.98};
++  std::vector<double> gammaScaleCorrCoeffHcalZDC = {2.7, 1.27};
+   /** Correction factors for neutrons in the LFHCAL */
+   std::vector<double> neutronScaleCorrCoeffLFHCAL = {2.55, 0.95};
+   /** Correction factors for gammas in the LFHCAL */
+@@ -34,7 +34,7 @@ struct FarForwardNeutralsReconstructionConfig {
+   double globalToProtonRotation = -0.025;
+   /** Neutron-photon separation in HcalFarForwardZDC */
+   double gammaZMaxOffset = 400;
+-  double gammaMaxLength  = 100;
++  double gammaMaxLength  = 150;
+   double gammaMaxWidth   = 12;
+ };
+ 
+diff --git a/src/detectors/ZDC/ZDC.cc b/src/detectors/ZDC/ZDC.cc
+index 24175540..197911df 100644
+--- a/src/detectors/ZDC/ZDC.cc
++++ b/src/detectors/ZDC/ZDC.cc
+@@ -190,16 +190,16 @@ void InitPlugin(JApplication* app) {
+       "HcalFarForwardZDCImagingProtoClusters", {"HcalFarForwardZDCSubcellHits"},
+       {"HcalFarForwardZDCImagingProtoClusters"},
+       {
+-          .neighbourLayersRange = 1,
+-          .sameLayerDistXY      = {side_length * 0.75, side_length * 0.75},
+-          .diffLayerDistXY      = {side_length * 0.75, side_length * 0.75},
++          .neighbourLayersRange = 3,
++          .sameLayerDistXY      = {0.3 * side_length, 0.3 * side_length},
++          .diffLayerDistXY      = {0.3 * side_length, 0.3 * side_length},
+           .sameLayerMode        = eicrecon::ImagingTopoClusterConfig::ELayerMode::xy,
+           .diffLayerMode        = eicrecon::ImagingTopoClusterConfig::ELayerMode::xy,
+           .sectorDist           = 10.0 * dd4hep::cm,
+           .minClusterHitEdep    = 315.0 * dd4hep::keV,
+-          .minClusterCenterEdep = 25 * dd4hep::MeV,
++          .minClusterCenterEdep = 5 * dd4hep::MeV,
+           .minClusterEdep       = 50.0 * dd4hep::MeV,
+-          .minClusterNhits      = 10,
++          .minClusterNhits      = 2,
+       },
+       app));
+ 
+diff --git a/src/global/reco/reco.cc b/src/global/reco/reco.cc
+index 78ab4ab2..e55d9c13 100644
+--- a/src/global/reco/reco.cc
++++ b/src/global/reco/reco.cc
+@@ -245,8 +245,8 @@ void InitPlugin(JApplication* app) {
+       {"ReconstructedHcalFarForwardZDCNeutrals", "ReconstructedB0EcalNeutrals",
+        "ReconstructedEcalEndcapPNeutrals", "ReconstructedLFHCALNeutrals"},
+       {.offsetPositionName               = "HcalFarForwardZDC_SiPMonTile_r_pos",
+-       .neutronScaleCorrCoeffHcalZDC     = {2.4, 0.89},
+-       .gammaScaleCorrCoeffHcalZDC       = {1.1, 0.98},
++       .neutronScaleCorrCoeffHcalZDC     = {16.65, 0.66},
++       .gammaScaleCorrCoeffHcalZDC       = {2.7, 1.27},
+        .neutronScaleCorrCoeffLFHCAL      = {2.55, 0.95},
+        .gammaScaleCorrCoeffLFHCAL        = {0., 0.},
+        .neutronScaleCorrCoeffB0Ecal      = {0., 0.},
+@@ -259,7 +259,7 @@ void InitPlugin(JApplication* app) {
+        .clusterEminLFHCAL                = 7.0,
+        .globalToProtonRotation           = -0.025,
+        .gammaZMaxOffset                  = 400,
+-       .gammaMaxLength                   = 100,
++       .gammaMaxLength                   = 150,
+        .gammaMaxWidth                    = 12},
+       app));
+ 

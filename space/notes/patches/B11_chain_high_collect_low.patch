@@ -1,0 +1,211 @@
+--- a/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
++++ b/src/algorithms/calorimetry/ImagingTopoClusterConfig.h
+@@ -47,6 +47,12 @@
+ 
+   // minimum hit energy to participate clustering
+   double minClusterHitEdep = 0.;
++  // "chain high, collect low": when 0 < minClusterCollectEdep < minClusterHitEdep, hits with
++  // minClusterCollectEdep <= E < minClusterHitEdep do not chain; after grouping they, the unseeded
++  // hits and the groups below the minClusterNhits / minClusterEdep floors join the surviving cluster
++  // they neighbour (the one holding the most energetic neighbouring hit), so surviving clusters never
++  // merge through them. Disabled (stock behaviour) by default.
++  double minClusterCollectEdep = 0.;
+   // minimum cluster center energy (to be considered as a seed for cluster)
+   double minClusterCenterEdep = 0.;
+   // minimum cluster energy (to save this cluster)
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.h
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.h
+@@ -63,6 +63,7 @@
+   std::array<double, 2> diffLayerDistTZ{0, 0};
+   double sectorDist{0};
+   double minClusterHitEdep{0};
++  double minClusterCollectEdep{0};
+   double minClusterCenterEdep{0};
+   double minClusterEdep{0};
+ 
+@@ -74,6 +75,15 @@
+   // helper function to group hits
+   bool is_neighbour(const edm4eic::CalorimeterHit& h1, const edm4eic::CalorimeterHit& h2) const;
+ 
++  // "chain high, collect low" mode (minClusterCollectEdep in (0, minClusterHitEdep))
++  bool collectLowHits() const {
++    return minClusterCollectEdep > 0. && minClusterCollectEdep < minClusterHitEdep;
++  }
++  // attach collected hits and sub-floor groups to the surviving clusters they neighbour
++  void collect(const edm4eic::CalorimeterHitCollection& hits,
++               std::vector<std::vector<std::size_t>>& clusters,
++               std::vector<std::vector<std::size_t>>& items) const;
++
+   // grouping function with Breadth-First Search
+   // note: template to allow Compare only known in local scope of caller
+   template <typename Compare>
+--- a/src/algorithms/calorimetry/ImagingTopoCluster.cc
++++ b/src/algorithms/calorimetry/ImagingTopoCluster.cc
+@@ -29,6 +29,7 @@
+ #include <cstdlib>
+ #include <stdexcept>
+ #include <tuple>
++#include <utility>
+ #include <variant>
+ #include <vector>
+ 
+@@ -78,9 +79,15 @@
+   diffLayerDistTZ[1]     = m_cfg.diffLayerDistTZ[1] / dd4hep::mm;
+ 
+   sectorDist           = m_cfg.sectorDist / dd4hep::mm;
+-  minClusterHitEdep    = m_cfg.minClusterHitEdep / dd4hep::GeV;
+-  minClusterCenterEdep = m_cfg.minClusterCenterEdep / dd4hep::GeV;
+-  minClusterEdep       = m_cfg.minClusterEdep / dd4hep::GeV;
++  minClusterHitEdep     = m_cfg.minClusterHitEdep / dd4hep::GeV;
++  minClusterCollectEdep = m_cfg.minClusterCollectEdep / dd4hep::GeV;
++  minClusterCenterEdep  = m_cfg.minClusterCenterEdep / dd4hep::GeV;
++  minClusterEdep        = m_cfg.minClusterEdep / dd4hep::GeV;
++  if (collectLowHits()) {
++    info("Chain hits >= {:.6f} GeV; collect hits >= {:.6f} GeV, unseeded hits and groups below the "
++         "floors into the surviving cluster they neighbour.",
++         minClusterHitEdep, minClusterCollectEdep);
++  }
+ 
+   // same layer clustering parameters
+   switch (m_cfg.sameLayerMode) {
+@@ -196,13 +203,23 @@
+   // indices contains the remaining hit indices that have not
+   // been assigned to a group yet
+   std::set<std::size_t, decltype(compare)> indices(compare);
++  // in "chain high, collect low" mode the hits between the collection and the chaining
++  // thresholds stay out of the grouping and are collected afterwards
++  const bool collectMode = collectLowHits();
++  std::vector<std::size_t> lowHits;
+   // set does not have a size yet, so cannot fill with iota
+   for (std::size_t i = 0; i < hits->size(); ++i) {
+-    indices.insert(i);
++    const double e = (*hits)[i].getEnergy();
++    if (collectMode && e >= minClusterCollectEdep && e < minClusterHitEdep) {
++      lowHits.push_back(i);
++    } else {
++      indices.insert(i);
++    }
+   }
+   // ensure no hits were dropped due to equivalency in set
+-  if (hits->size() != indices.size()) {
+-    error("equivalent hits were dropped: #hits {:d}, #indices {:d}", hits->size(), indices.size());
++  if (hits->size() != indices.size() + lowHits.size()) {
++    error("equivalent hits were dropped: #hits {:d}, #indices {:d}", hits->size(),
++          indices.size() + lowHits.size());
+   }
+ 
+   // Group neighbouring hits
+@@ -246,6 +263,42 @@
+     }
+   }
+ 
++  if (collectMode) {
++    // surviving groups become clusters; the groups below the floors, the unseeded hits left in
++    // indices (above the chaining threshold, never reached from a seed) and the low hits are
++    // collected into the surviving cluster they neighbour
++    std::vector<std::vector<std::size_t>> clusters;
++    std::vector<std::vector<std::size_t>> items;
++    for (const auto& group : groups) {
++      double energy = 0.;
++      for (std::size_t idx : group) {
++        energy += (*hits)[idx].getEnergy();
++      }
++      if (group.size() < m_cfg.minClusterNhits || energy < minClusterEdep) {
++        items.emplace_back(group.begin(), group.end());
++      } else {
++        clusters.emplace_back(group.begin(), group.end());
++      }
++    }
++    for (std::size_t idx : indices) {
++      if ((*hits)[idx].getEnergy() >= minClusterHitEdep) {
++        items.push_back({idx});
++      }
++    }
++    for (std::size_t idx : lowHits) {
++      items.push_back({idx});
++    }
++    collect(*hits, clusters, items);
++    for (const auto& cluster : clusters) {
++      auto pcl = proto->create();
++      for (std::size_t idx : cluster) {
++        pcl.addToHits((*hits)[idx]);
++        pcl.addToWeights(1);
++      }
++    }
++    return;
++  }
++
+   // form clusters
+   for (const auto& group : groups) {
+     if (group.size() < m_cfg.minClusterNhits) {
+@@ -265,6 +318,60 @@
+     }
+   }
+ }
++
++// "chain high, collect low": grow the surviving clusters by the items (collected hits and sub-floor
++// groups) that neighbour them, pass by pass. In each pass an item joins the cluster that owns its most
++// energetic neighbouring hit among the hits attached in the previous pass (ties: lower hit index), so
++// the outcome does not depend on the item order and two clusters never merge. Items that never touch
++// a cluster are dropped, as the stock algorithm drops them.
++void ImagingTopoCluster::collect(const edm4eic::CalorimeterHitCollection& hits,
++                                 std::vector<std::vector<std::size_t>>& clusters,
++                                 std::vector<std::vector<std::size_t>>& items) const {
++  // the hits attached in the previous pass, with their cluster
++  std::vector<std::pair<std::size_t, std::size_t>> frontier;
++  for (std::size_t c = 0; c < clusters.size(); ++c) {
++    for (std::size_t idx : clusters[c]) {
++      frontier.emplace_back(idx, c);
++    }
++  }
++  std::vector<bool> attached(items.size(), false);
++  while (!frontier.empty()) {
++    std::vector<std::pair<std::size_t, std::size_t>> joins; // (item, cluster)
++    for (std::size_t i = 0; i < items.size(); ++i) {
++      if (attached[i]) {
++        continue;
++      }
++      bool found         = false;
++      std::size_t best   = 0;
++      std::size_t target = 0;
++      for (const auto& [idx, c] : frontier) {
++        if (found && (hits[idx].getEnergy() < hits[best].getEnergy() ||
++                      (hits[idx].getEnergy() == hits[best].getEnergy() && idx > best))) {
++          continue;
++        }
++        for (std::size_t h : items[i]) {
++          if (is_neighbour(hits[h], hits[idx])) {
++            found  = true;
++            best   = idx;
++            target = c;
++            break;
++          }
++        }
++      }
++      if (found) {
++        joins.emplace_back(i, target);
++      }
++    }
++    frontier.clear();
++    for (const auto& [i, c] : joins) {
++      attached[i] = true;
++      for (std::size_t h : items[i]) {
++        clusters[c].push_back(h);
++        frontier.emplace_back(h, c);
++      }
++    }
++  }
++}
+ 
+ // helper function to group hits
+ bool ImagingTopoCluster::is_neighbour(const edm4eic::CalorimeterHit& h1,
+--- a/src/factories/calorimetry/ImagingTopoCluster_factory.h
++++ b/src/factories/calorimetry/ImagingTopoCluster_factory.h
+@@ -43,6 +43,7 @@
+   ParameterRef<int> m_nlr{this, "neighbourLayersRange", config().neighbourLayersRange};
+   ParameterRef<double> m_sd{this, "sectorDist", config().sectorDist};
+   ParameterRef<double> m_mched{this, "minClusterHitEdep", config().minClusterHitEdep};
++  ParameterRef<double> m_mcoled{this, "minClusterCollectEdep", config().minClusterCollectEdep};
+   ParameterRef<double> m_mcced{this, "minClusterCenterEdep", config().minClusterCenterEdep};
+   ParameterRef<double> m_mced{this, "minClusterEdep", config().minClusterEdep};
+   ParameterRef<std::size_t> m_mcnh{this, "minClusterNhits", config().minClusterNhits};

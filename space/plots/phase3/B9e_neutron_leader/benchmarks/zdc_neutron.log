@@ -1,0 +1,63 @@
+Processing /work/scripts/700_benchmarks/fwd_neutrons_recon.C("/data/zdc-autoresearch/benchmark-layout/B9e_neutron_leader/sim_output/zdc_neutron/*.edm4eic.root","results/epic_craterlake/zdc_neutron/fwd_neutrons_recon_GeV.pdf")...
+Error in <TFile::TFile>: file /data/zdc-autoresearch/benchmark-layout/B9e_neutron_leader/sim_output/zdc_neutron/*.edm4eic.root does not exist
+
+ *** Break *** segmentation violation
+Total number of events to analyze is 
+
+
+===========================================================
+There was a crash.
+This is the entire stack trace of all threads:
+===========================================================
+#0  0x00007f62627c83a7 in ?? () from /lib/x86_64-linux-gnu/libc.so.6
+#1  0x00007f62627c83cd in ?? () from /lib/x86_64-linux-gnu/libc.so.6
+#2  0x00007f6262833507 in wait4 () from /lib/x86_64-linux-gnu/libc.so.6
+#3  0x00007f626278befb in ?? () from /lib/x86_64-linux-gnu/libc.so.6
+#4  0x00007f6262ef02b1 in TUnixSystem::StackTrace() () from /opt/software/linux-x86_64_v2/root-6.40.04-xv2nd6wrx33iv3yu4eoyauy4smm2pa2n/lib/root/libCore.so.6.40
+#5  0x00007f6262eefc04 in TUnixSystem::DispatchSignals(ESignals) () from /opt/software/linux-x86_64_v2/root-6.40.04-xv2nd6wrx33iv3yu4eoyauy4smm2pa2n/lib/root/libCore.so.6.40
+#6  <signal handler called>
+#7  0x00007f6261d530f3 in ?? ()
+#8  0x0000000000000008 in ?? ()
+#9  0x00007ffeafea41d8 in ?? ()
+#10 0x0000000000000200 in ?? ()
+#11 0x0000000000000008 in ?? ()
+#12 0xd9dc2e58b134fbb9 in ?? ()
+#13 0x00005617dd10ac10 in ?? ()
+#14 0xffffffffffff9bf8 in ?? ()
+#15 0x0000000000000016 in ?? ()
+#16 0xd9dc2e58b134fbb9 in ?? ()
+#17 0x00005617de8f0ec0 in ?? ()
+#18 0xffffffffffff9bf8 in ?? ()
+#19 0x0000000000000016 in ?? ()
+#20 0x0000000000000000 in ?? ()
+===========================================================
+
+
+The lines below might hint at the cause of the crash. If you see question
+marks as part of the stack trace, try to recompile with debugging information
+enabled and export CLING_DEBUG=1 environment variable before running.
+You may get help by asking at the ROOT forum https://root.cern/forum
+preferably using the command (.forum bug) in the ROOT prompt.
+Only if you are really convinced it is a bug in ROOT then please submit a
+report at https://root.cern/bugs or (preferably) using the command (.gh bug) in
+the ROOT prompt. Please post the ENTIRE stack trace
+from above as an attachment in addition to anything else
+that might help us fixing this issue.
+===========================================================
+#7  0x00007f6261d530f3 in ?? ()
+#8  0x0000000000000008 in ?? ()
+#9  0x00007ffeafea41d8 in ?? ()
+#10 0x0000000000000200 in ?? ()
+#11 0x0000000000000008 in ?? ()
+#12 0xd9dc2e58b134fbb9 in ?? ()
+#13 0x00005617dd10ac10 in ?? ()
+#14 0xffffffffffff9bf8 in ?? ()
+#15 0x0000000000000016 in ?? ()
+#16 0xd9dc2e58b134fbb9 in ?? ()
+#17 0x00005617de8f0ec0 in ?? ()
+#18 0xffffffffffff9bf8 in ?? ()
+#19 0x0000000000000016 in ?? ()
+#20 0x0000000000000000 in ?? ()
+===========================================================
+
+

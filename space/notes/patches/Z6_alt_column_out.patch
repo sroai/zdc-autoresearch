@@ -1,0 +1,125 @@
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.cc
+@@ -206,6 +206,15 @@
+             cand.push_back(static_cast<std::size_t>(h));
+             if (e >= 0.0) {
+               alt_energy[static_cast<std::size_t>(h)] = {e, c};
++              // the column beyond the photon's own cluster leaves the neutron (crystalAltColumnOut)
++              for (const auto& a : alts) {
++                if (a.hcal == static_cast<std::size_t>(h) && a.column_out > 0.0) {
++                  column_energy += a.column_out;
++                  column_moment[0] += a.column_out * a.column_position.x;
++                  column_moment[1] += a.column_out * a.column_position.y;
++                  column_moment[2] += a.column_out * a.column_position.z;
++                }
++              }
+             }
+           }
+         }
+@@ -823,7 +832,10 @@
+         }
+       }
+       if (lead != nullptr) {
+-        alts->push_back({i, lead->energy, lead->index});
++        const double out_e = m_cfg.crystalAltColumnOut
++                                 ? std::max(0.0, m_cfg.crystalColumnNeutronScale * lead->column_energy - clusters[i].getEnergy())
++                                 : 0.0;
++        alts->push_back({i, lead->energy, lead->index, out_e, lead->column_position});
+       }
+     }
+   }
+@@ -882,9 +894,19 @@
+     moment[2] += e * cl.getPosition().z;
+   }
+   // the neutron energy and proton-frame position after removing an Hcal photon (or -1) and crystal photons' columns
+-  auto neutron = [&](std::initializer_list<int> hcals, std::initializer_list<const CrystalPhoton*> crys) -> std::pair<double, V3> {
++  auto neutron = [&](std::initializer_list<int> hcals, std::initializer_list<const CrystalPhoton*> crys,
++                     std::initializer_list<const AltEnergy*> alt_out = {}) -> std::pair<double, V3> {
+     double raw = tot;
+     std::array<double, 3> m = moment;
++    for (const auto* a : alt_out) {
++      if (a == nullptr || a->column_out <= 0.0) {
++        continue;
++      }
++      raw -= a->column_out;
++      m[0] -= a->column_out * a->column_position.x;
++      m[1] -= a->column_out * a->column_position.y;
++      m[2] -= a->column_out * a->column_position.z;
++    }
+     for (int hcal : hcals) {
+       if (hcal < 0 || clusters[hcal].getEnergy() < clusterEmin) {
+         continue;
+@@ -998,10 +1020,10 @@
+       if (std::ranges::find(c1.behind, i) != c1.behind.end()) {
+         continue;
+       }
+-      const auto [En, xn] = neutron({static_cast<int>(i)}, {&c1});
+-      const V3 x2         = toProton(clusters[i].getPosition());
++      const V3 x2 = toProton(clusters[i].getPosition());
+       for (const auto& [e2, alt] : options(i)) {
+-        const double score = fit(c1.energy, x1, e2, x2, En, xn, false) +
++        const auto [En, xn] = neutron({static_cast<int>(i)}, {&c1}, {alt});
++        const double score  = fit(c1.energy, x1, e2, x2, En, xn, false) +
+                              wpd * ((x2[2] - m_zZDC) / 100.0 + m_cfg.crystalPhotonDepth);
+         if (score < best.score) {
+           best = {score, static_cast<int>(ka), -1, static_cast<int>(i), -1};
+@@ -1049,14 +1071,14 @@
+       if (oi.size() == 1 && oj.size() == 1) {
+         continue;
+       }
+-      const auto [En, xn] = neutron({static_cast<int>(i), static_cast<int>(j)}, {});
+-      const V3 x1         = toProton(clusters[i].getPosition());
+-      const V3 x2         = toProton(clusters[j].getPosition());
++      const V3 x1 = toProton(clusters[i].getPosition());
++      const V3 x2 = toProton(clusters[j].getPosition());
+       for (const auto& [e1, a1] : oi) {
+         for (const auto& [e2, a2] : oj) {
+           if ((a1 == nullptr && a2 == nullptr) || (a1 != nullptr && a2 != nullptr && a1->crystal == a2->crystal)) {
+             continue;
+           }
++          const auto [En, xn] = neutron({static_cast<int>(i), static_cast<int>(j)}, {}, {a1, a2});
+           const double score =
+               fit(e1, x1, e2, x2, En, xn, false) + wpd * (x1[2] + x2[2] - 2 * m_zZDC) / 100.0;
+           if (score < best.score) {
+@@ -1069,7 +1091,7 @@
+   }
+   if (external != nullptr) {
+     for (const auto& a : alts) {
+-      const auto [En, xn] = neutron({static_cast<int>(a.hcal)}, {});
++      const auto [En, xn] = neutron({static_cast<int>(a.hcal)}, {}, {&a});
+       const V3 x1         = toProton(clusters[a.hcal].getPosition());
+       for (std::size_t ke = 0; ke < external->size(); ++ke) {
+         const auto& ext    = (*external)[ke];
+--- a/src/algorithms/reco/FarForwardNeutralsReconstruction.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstruction.h
+@@ -125,6 +125,8 @@
+     std::size_t hcal;
+     double energy;
+     std::size_t crystal;
++    double column_out;                // energy leaving the neutron with it (crystalAltColumnOut), Hcal clusters' scale
++    edm4hep::Vector3f column_position; // its column's energy-weighted centroid
+   };
+ 
+   /** The best hypothesis with a crystal photon or a crystal-law energy: its score and its photons — crystal candidates a,
+--- a/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
++++ b/src/algorithms/reco/FarForwardNeutralsReconstructionConfig.h
+@@ -92,6 +92,9 @@
+       crystal cluster in front and its column): every hypothesis that uses it is scored with either energy, and if the
+       crystal law's wins, the photon carries that energy and links the crystal cluster too */
+   bool crystalEnergyAlternative = false;
++  /** When a tagged Hcal photon carries the crystal law's energy, the part of its Hcal column beyond its own cluster
++      (column x crystalColumnNeutronScale minus the cluster's energy) leaves the neutron: that energy is in the photon */
++  bool crystalAltColumnOut = false;
+ };
+ 
+ } // namespace eicrecon
+--- a/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
++++ b/src/factories/reco/FarForwardNeutralsReconstruction_factory.h
+@@ -120,6 +120,7 @@
+                                                      config().crystalColumnNeutronScale};
+   ParameterRef<bool> m_crystal_energy_alternative{this, "crystalEnergyAlternative",
+                                                   config().crystalEnergyAlternative};
++  ParameterRef<bool> m_crystal_alt_column_out{this, "crystalAltColumnOut", config().crystalAltColumnOut};
+ 
+   Service<AlgorithmsInit_service> m_algorithmsInit{this};
+ 
