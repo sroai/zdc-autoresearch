@@ -1,0 +1,12 @@
+# Phase 4 X7: photon-core split of the ZDC imaging clusters (seed 5 MeV, first 4 layers, 50 mm), cluster floor 20 MeV, and
+# the D2/D3 refit for this clustering (photon 4.496·E^0.848, neutron 6.214·E^0.740). Commit 448731f0 on zdc-autoresearch/phase4,
+# build label X7, patch space/notes/patches/X7_core_split.patch. Code, no parameters. Slim template. Judged against X5.
+name: X7_core_split_repeat
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X7
+source_commit: 448731f0
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "determinism repeat of X7 (D4 175 GeV)"

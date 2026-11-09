@@ -1,0 +1,13 @@
+# Phase 4 X3: the Λ-pairing ranking weights (on X2, accepted): σ_Λ 0.04 GeV, depth weight 1.5 (471 grid plateau).
+# Commit 50018ef8 on zdc-autoresearch/phase4, build label X3, patch space/notes/patches/X3_pairing_weights.patch.
+# Code, no parameters (the knob reco:ReconstructedFarForwardNeutrals:lambdaPairingHcalZDC defaults to true).
+# Judged against X2_lambda_pairing.
+name: X3_pairing_weights
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X3
+source_commit: 50018ef8
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X3 — Λ-pairing ranking weights: σ_Λ 40 MeV, depth weight 1.5"

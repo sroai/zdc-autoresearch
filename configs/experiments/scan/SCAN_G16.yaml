@@ -1,0 +1,12 @@
+# Phase 4 scan on X7 (never scored as a try): neutronPositionCentroid 1, coreSplitCoreMaxLayer 16; build scanG = X7 (3946ee1a)
+# + core radius / core depth / neutron-centroid knobs (all off by default). Slim template.
+name: SCAN_G16
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanG
+parameters:
+  reco:ReconstructedFarForwardNeutrals:neutronPositionCentroid: 1
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitCoreMaxLayer: 16
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "scan G16 on X7"

@@ -1,0 +1,10 @@
+# Phase 4 scan (never scored as a try): floor 10 MeV; build X5b. Slim template.
+name: SCAN_M3
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X5b
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterEdep: 0.01
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "scan M3: floor 10 MeV"

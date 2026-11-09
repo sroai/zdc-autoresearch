@@ -1,0 +1,21 @@
+# Phase 6 try Z1b (loop v6): Z1 with the Hcal column behind a crystal photon summed over the Hcal rec hits (the neutrals
+# factory's 6th input HcalFarForwardZDCRecHits), the hits the crystal photon law was fitted on. Z1 summed the Hcal
+# clusters' hits (HEXPLIT subcells), a median 0.45 of the rec-hit column, so its crystal photons carried a median 0.56 of
+# their energy (Z1 INCONCLUSIVE, +12). The column leaves the neutron on the rec-hit scale (crystalColumnNeutronScale 1,
+# as the emulation). Everything else as Z1.
+# Patch space/notes/patches/Z1b_crystal_column.patch on a15b0db6 + Y2 + Y5 + Y9; build Z1b; Y9's parameters carried.
+# hypothesis: the C++ now matches the 477 emulation (rec-hit column): net +118 (9x275) and +15 (9x130), N_window +122 / +18.
+# Predicted N_found 1267 → ~1385, 219 → ~234; purity 26.7 → ~28.4 % pooled.
+name: Z1b_crystal_column
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Z1b
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "a15b0db6 + Y2 + Y5 + Y9 + Z1b patches (install Z1b) + Y9's B0 parameters"

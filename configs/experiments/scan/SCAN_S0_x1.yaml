@@ -1,0 +1,12 @@
+# Phase 4 X2 scan (never scored as a try): X1 clustering (reference of the scan)
+# Build scanA = X1 + B11's ImagingTopoCluster knob (default off). Two D4 files (150, 275 GeV); judged by 470's
+# clustering-loss fraction. The Island variants rewire the ZDC CoG by InputTags, which F1c forbids in a try:
+# the chosen variant is wired in code when it becomes X2.
+name: SCAN_S0_x1
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanA
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X2 scan, X1 clustering (reference of the scan)"

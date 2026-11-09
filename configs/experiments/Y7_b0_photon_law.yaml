@@ -1,0 +1,23 @@
+# Phase 5 try Y7 (loop v5, D-user-40): the B0 photon energy law fitted on the B0 photon gun D2b_photon_B0 with Y6's B0
+# clustering (467 on CAL5_D2b_Y6: a = 1.0888 ± 0.0031, b = 1.0058 ± 0.0011; residual peaks 0.998–1.002 at 2–40 GeV; on Y4's
+# clustering, CAL5_D2b_Y4: 1.0781 / 1.0098) replaces
+# the stock 0.99·E^1.14, which reads gun photons 12 % (5 GeV) to 43 % (40 GeV) high. Parameter on the Y5 install with
+# Y6's B0 parameters.
+# hypothesis: on MSF the stock law reads B0 photons a median 1.06–1.08 of true; the gun law reads them ~12 % lower. Both
+# photons in B0 (true-triplet mass +8.9 / +11.1 MeV on Y5): masses move into the window, found up (9x275 ~+10, 9x130
+# ~+15). γ B0 + γ ZDC (mass +3.6 / −0.5 MeV, the B0 photon's overestimate cancelling the ZDC photon's 0.78): masses move
+# low, found down (9x275 ~−20, 9x130 ~−3). Predicted N_found 1209 → ~1200, 182 → ~195: net small, sign uncertain; purity
+# flat. A calibration fitted on a gun is kept on its merit only if the paired test says so.
+name: Y7_b0_photon_law
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y5
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.5
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Y6 (install Y5 + B0 parameters) + the gun-fitted B0 photon law (calib-B0-CAL5_D2b_Y6.json)"

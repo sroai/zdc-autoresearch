@@ -1,0 +1,23 @@
+# Phase 5 try Y9 (loop v5): the ZDC Λ pairing gets a third hypothesis class, both photons outside the ZDC: every pair of B0
+# photon candidates with every ZDC cluster as the neutron (Y2's lever-arm vertex). If it wins, no ZDC cluster is a ZDC
+# photon and LambdaReconstruction pairs the two B0 photons with the whole ZDC as the neutron. Its photon-depth term is the
+# constant lambdaPairingExternalPairPhotonDepth = −30 (475 emulation on Y8's search half: net +41 at −28, +38 at −32; the
+# γγ-in-B0 gain plateaus from −28, the γ B0 + γ ZDC cost grows below it). Switch lambdaPairingExternalPair (default false,
+# true in reco.cc), proven on file 0001: off reproduces Y8 exactly, on changes 22 events' ZDC neutrals.
+# Patch space/notes/patches/Y9_external_pair.patch on a15b0db6 + Y2 + Y5; build Y9; all of Y8's parameters carried.
+# hypothesis: with both photons in B0, Y8 picks another triplet for 46 (9x275) and 53 (9x130) of 264 Λ — Y5's pairing still
+# writes ZDC fragments as photons there. Emulated net: 9x275 γγ in B0 +21, γ B0 + γ ZDC −4, all-ZDC −1; 9x130 +28, −3.
+# Predicted N_found 1252 → ~1268, 194 → ~219; purity flat or up.
+name: Y9_external_pair
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y9
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "a15b0db6 + Y2 + Y5 + Y9 patches (install Y9) + Y8's B0 parameters and Y7's B0 photon law"

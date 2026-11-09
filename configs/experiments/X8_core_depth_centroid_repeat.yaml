@@ -1,0 +1,12 @@
+# Phase 4 X8: photon cores limited to their first 5 layers, the ZDC neutron at its cluster centroid, photon refit
+# 3.952·E^0.938. Commit 26bd6925 on zdc-autoresearch/phase4, build X8, patch space/notes/patches/X8_core_depth_centroid.patch.
+# Code, no parameters. Slim template. Judged against X7.
+name: X8_core_depth_centroid_repeat
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X8
+source_commit: 26bd6925
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "determinism repeat of X8 (D4 175 GeV)"

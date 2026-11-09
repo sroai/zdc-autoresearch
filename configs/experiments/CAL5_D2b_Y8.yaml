@@ -1,0 +1,14 @@
+# Phase 5 (D-user-40): the B0 photon gun D2b_photon_B0 reconstructed with the current B0 clustering (Y6: the Y5 install
+# with the B0 island splitting parameters) for the B0 photon energy law (scripts/467_b0_photon_law.py). Never a selector.
+name: CAL5_D2b_Y8
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y9
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+nthreads: 1
+datasets: [D2b_photon_B0]
+output_collections: ["EventHeader", "B0ECalRawHits", "B0ECalClusters", "B0ECalClusterAssociations", "ReconstructedB0EcalNeutrals"]
+notes: "calibration input, B0 clustering of Y8 (sharing 0.3)"

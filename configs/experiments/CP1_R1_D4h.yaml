@@ -1,0 +1,9 @@
+# Phase 4 checkpoint 1 (F5): R1 (PR 3064, the best at the start of Phase 4) on the held-out D4h. Slim template.
+name: CP1_R1_D4h
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: R1
+parameters: {}
+nthreads: 1
+datasets: [D4h_lambda_heldout]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "checkpoint 1: R1 on D4h"

@@ -1,0 +1,14 @@
+# Phase 4 X2: the photon pair chosen by the Λ hypothesis in the ZDC neutrals (on X1, accepted).
+# Commit 8d4ae1c4 on zdc-autoresearch/phase4, build label X2, patch space/notes/patches/X2_lambda_pairing.patch.
+# Code, no parameters (the knob reco:ReconstructedFarForwardNeutrals:lambdaPairingHcalZDC defaults to true).
+# Judged against X1_offline_chain.
+name: X2_knob_off
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X2
+source_commit: 8d4ae1c4
+parameters:
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingHcalZDC: 0
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: switch test of X2 — knob off must reproduce X1 (D4 175 GeV)

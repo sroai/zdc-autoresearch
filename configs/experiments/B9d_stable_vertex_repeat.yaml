@@ -1,0 +1,19 @@
+# Determinism repeat of B9d_stable_vertex (loop v3 code tier: the determinism check after every rebuild): the same build, parameters and inputs, one D4 file and one D5 chunk, compared with 130 (full and --zdc) against B9d_stable_vertex's own outputs.
+# Phase 3, Λ family, B9d: the stable vertex-aware pairing on top of R3 (PR 3063).
+# reconstruct_from_triplet places the decay vertex on the line of the momentum-weighted centroid of
+# the impact points (the Λ comes from the IP) and finds the depth by bisection on the γγ opening angle,
+# instead of iterating IDOLA (finding F9). Patch: space/notes/patches/B9d_stable_vertex.patch (pin →
+# R3 + stable vertex), build label B9d. `iterations` is the number of bisection halvings: 20 gives
+# zMax / 2^20 ≈ 0.03 mm, the resolution of the offline prediction (414/415 vertex_fixed).
+# Clustering and parameters are R2's: the paired tests run on R2's and R3's events.
+name: B9d_stable_vertex_repeat
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: B9d
+parameters:
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+  reco:ReconstructedLambdas:iterations: 20
+nthreads: 1
+datasets: [D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
+output_collections: [".*"]
+notes: code experiment, Λ family (selector S4a_tm per thrown vs R2; R3 beside)

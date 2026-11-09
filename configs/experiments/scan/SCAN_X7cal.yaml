@@ -1,0 +1,14 @@
+# Phase 4 X7: calibration samples (D2 photons, D3 neutrons) for X7's clustering — photon-core split (seed 5 MeV, layers ≤ 4,
+# 50 mm) and cluster floor 20 MeV — for 420's refit. Build scanD. Slim template (420 reads 410's tables only).
+name: SCAN_X7cal
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanD
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitSeedEdep: 0.005
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitMaxLayer: 4
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitMinDistXY: 50
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterEdep: 0.020
+nthreads: 1
+datasets: [D2_photon, D3_neutron]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X7 refit samples: core split (5 MeV, ≤ 4 layers, 50 mm) + floor 20 MeV"

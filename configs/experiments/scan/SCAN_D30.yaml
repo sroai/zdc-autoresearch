@@ -1,0 +1,11 @@
+# Phase 4 scan on X7 (never scored as a try): coreSplitMinDistXY 3.0 cm (JANA length parameters are in
+# DD4hep base units, cm); build scanE = X7 (3946ee1a) + the core-radius knob. Slim template.
+name: SCAN_D30
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanE
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitMinDistXY: 3.0
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "scan D30 on X7 (lengths in cm)"

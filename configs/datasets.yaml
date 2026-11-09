@@ -3,9 +3,12 @@
 # reads `dis`; scripts/112_msf_sample.sh reads `msf`. Frozen after Phase 0:
 # a change here is a question, never an edit.
 
-detector_config_guns: epic_zdc_lyso_sipm          # LYSO crystal ECal + SiPM-on-tile HCal, as in every physics sample
-detector_config_guns_alt: epic_zdc_sipm_on_tile_only   # what the benchmarks' CI uses; a cross-check, one flag away
-detector_config_dis: epic_craterlake_18x275
+# The guns run on the full detector (D-user-8): at the pin, FarForwardNeutralsReconstruction needs the B0 ECal,
+# EEMC-P and LFHCAL clusters as inputs, so on a ZDC-only geometry the ZDC neutrals and Λs are empty. epic_craterlake
+# carries the same ZDC (ZDC_SiPMonTile.xml + ZDC_Crystal_LYSO.xml) plus the beamline material in front of it.
+detector_config_guns: epic_craterlake
+detector_config_guns_alt: epic_zdc_lyso_sipm       # ZDC-only, material-free cross-check (clusters only); finished points in {data}/datasets_zdconly/
+detector_config_dis: epic_craterlake                # the default 18x275 beamline; the image has no epic_craterlake_18x275.xml (D-default-13)
 physics_list: FTFP_BERT
 theta_max_mrad: 4.0                                # the guns' acceptance around the proton axis
 
@@ -14,24 +17,31 @@ guns:
   D1_pi0:
     generator: submodules/detector_benchmarks/benchmarks/zdc_pi0/analysis/gen_pi0_decay.cxx
     macro: gen_pi0_decay
-    momenta_gev: [20, 30, 50, 70, 60, 80, 100, 130, 160]   # Λ-daughter π⁰ energies (6 to 25 % of E_Λ) plus the benchmark's
+    # The π⁰ decays at the IP, so both photons fit inside the 4 mrad face only when the opening angle
+    # (≥ 2m/E: 13.5 mrad at 20 GeV, 9 mrad at 30 GeV) is small: 20 and 30 GeV accept zero events.
+    # Low-energy π⁰ from displaced Λ decays are covered by D4. Acceptance per 4000 generated (Step 0):
+    # 50: 810, 60: 1245, 70: 1576, 80: 1893, 100: 2352, 130: 2757, 160: 3021.
+    momenta_gev: [50, 60, 70, 80, 100, 130, 160]
     events: 2000
+    generate_factor: 6                   # the macro loops a fixed count and drops unaccepted events: generate 6× events, npsim keeps the first `events`
     seeds: [1]
   D1h_pi0_heldout:
     generator: submodules/detector_benchmarks/benchmarks/zdc_pi0/analysis/gen_pi0_decay.cxx
     macro: gen_pi0_decay
-    momenta_gev: [30, 70, 100]
+    momenta_gev: [50, 70, 100]           # 30 GeV accepts zero events (see D1_pi0)
     events: 2000
+    generate_factor: 6
     seeds: [101]
   D1n_pi0_noise:
     generator: submodules/detector_benchmarks/benchmarks/zdc_pi0/analysis/gen_pi0_decay.cxx
     macro: gen_pi0_decay
     momenta_gev: [100]
     events: 2000
+    generate_factor: 6
     seeds: [2, 3]
   D2_photon:
-    generator: submodules/detector_benchmarks/benchmarks/zdc_photon/analysis/gen_particles.cxx
-    macro: gen_particles
+    generator: python-gun                # gen_particles.cxx (the benchmark's photon generator) has no seed argument and
+    macro: ""                            # always clock-seeds (TRandom3(0)); the seeded python gun reproduces its kinematics
     particle: gamma
     momenta_gev: [20, 30, 50, 70, 100, 150, 200, 275]
     events: 1000
@@ -61,33 +71,111 @@ guns:
     momenta_gev: [175]
     events: 2000
     seeds: [2, 3]
+  D2b_photon_B0:
+    # Phase 5 (D-user-40): photons aimed at the B0 ECal for the B0 photon energy law (fitted on a gun, never on D6).
+    # B0 sim hits of MSF 9x275 sit at z ≈ 7.0 m, 6–24 mrad from the proton axis (1–99 %); the Λ photons that land
+    # there carry 2.7–25 GeV (10–90 %).
+    generator: python-gun
+    macro: ""
+    particle: gamma
+    momenta_gev: [2, 5, 10, 20, 40]
+    events: 1000
+    seeds: [1]
+    theta_min_mrad: 7.0
+    theta_max_mrad: 20.0
+  D2c_photon_low:
+    # Phase 6 (D-user-42, loop v6): photons into the ZDC below D2's 20 GeV, for the crystal-seeded photon law (fitted on
+    # guns, never on D6). MSF photons that reach the ZDC carry 5–50 GeV (median 17 GeV at 9x275, 10 % below 6.3 GeV).
+    generator: python-gun
+    macro: ""
+    particle: gamma
+    momenta_gev: [5, 10, 15]
+    events: 1000
+    seeds: [1]
 
 dis:
-  # Official campaign FULL (DD4hep) files, the reviewers' own inputs. Step 0 fills
-  # `campaign` with the newest campaign that has these paths and lists the files
-  # it fetched in the manifest. Sized in R0 ZDC clusters, not events. Fallback:
-  # npsim of the EVGEN files named in
-  # submodules/EICrecon/.github/workflows/linux-eic-shell.yml (jobs npsim-dis, npsim-dis-nc).
-  xrootd_base: root://dtn2304.jlab.org:8443//jlab-osdf-ro/eic/EPIC/volatile/FULL
-  campaign: ""                      # Step 0 fills, e.g. 26.10.0
+  # The EVGEN files the EICrecon CI simulates for its DIS capybara pages (the reviewers' inputs:
+  # submodules/EICrecon/.github/workflows/linux-eic-shell.yml, jobs npsim-dis and npsim-dis-nc's
+  # 18x275 entries), simulated here with npsim on the pin's geometry by scripts/113_simulate_dis.py.
+  # Campaign FULL files are not used: the campaigns that hold these samples on XRootD (25.12.0,
+  # 26.02.0) predate the 26.05 square-tile ZDC, and no newer campaign has them (Step 0, D-default-14).
+  # Sized in R0 ZDC clusters: Step 0 raises `chunks` until min_clusters is met.
+  xrootd: root://dtn2304.jlab.org:8443
+  events_per_chunk: 100                     # one npsim process per chunk (--skipNEvents chunk × events_per_chunk)
+  seed_base: 1000                           # npsim seed of chunk k is seed_base + k
   samples:
     D5_dis_minq2_100:
-      path: "{campaign}/epic_craterlake_18x275/DIS/NC/18x275/minQ2=100"
-      min_events: 2000              # the first fetch target; Step 0 raises it until min_clusters is met
+      evgen: /jlab-osdf-ro/eic/EPIC/volatile/EVGEN/DIS/pythia8.316-1.0/NC/noRad/ep/18x275/q2_100to1000/pythia8.316-1.0_NC_noRad_ep_18x275_q2_100to1000_run000.hepmc3.tree.root
+      chunks: 40                    # 30 gave 1676 R0 ZDC clusters (0.559 per event); 40 → about 2240
       min_clusters: 2000            # R0 ZDC clusters (36 φ bins × 50 entries with margin)
     D5_dis_minq2_0:
-      path: "{campaign}/epic_craterlake_18x275/SIDIS/pythia6-eic/1.0.0/18x275/q2_0to1"
-      min_events: 2000
+      evgen: /jlab-osdf-ro/eic/EPIC/volatile/EVGEN/SIDIS/pythia6-eic/1.0.0/18x275/q2_0to1/pythia_ep_noradcor_18x275_q2_0.000000001_1.0_run1.ab.hepmc3.tree.root
+      chunks: 22                    # 15 gave 1470 R0 ZDC clusters (0.980 per event); 22 → about 2160
       min_clusters: 2000
 
 msf:
   D6a_local:
     dd4hep_dir: /data/meson-structure-2026-07/dd4hep/9x130
     file_glob: "msf_9x130_1000evt_*.edm4hep.root"
-    detector_config: epic_craterlake_9x130     # Step 0 confirms from the campaign documentation
-    background: unknown                         # Step 0 fills: whether the dd4hep step read bg_merged
+    detector_config: epic_craterlake_9x130     # confirmed: simulation-pipeline/simulation_pipeline/20_create_npsim_jobs.py, image eic_xl:26.06-stable
+    background: none                            # confirmed: dd4hep_input is afterburner/<energy>-priority (docs/campaign-2026-07), never bg_merged
+  D6a_9x275:
+    # The highest-yield energy of campaign 2026-07 for Λ → nπ⁰ in the ZDC (D-user-9); copied from the farm
+    # (dd4hep/9x275, files 0001–0005) through the ifarm tunnel; the campaign reco of file 0002 is beside it (0001 has none).
+    dd4hep_dir: /data/zdc-autoresearch/msf-9x275/dd4hep
+    file_glob: "msf_9x275_1000evt_*.edm4hep.root"
+    detector_config: epic_craterlake_9x275
+    background: none
+  D6c_9x130:
+    # Campaign meson-structure-2026-11 (D-user-38), copied from the farm (dd4hep/9x130): 80 files of 500 events
+    # despite the "1000evt" name — npsim --numberOfEvents 500 on the first 500 events of each 2026-07 afterburner
+    # 9x130-priority file; eic_xl:26.11-stable, Geant4TVUserParticleHandler, no background.
+    dd4hep_dir: /data/zdc-autoresearch/msf-2026-11/dd4hep/9x130
+    file_glob: "msf_9x130_1000evt_*.edm4hep.root"
+    detector_config: epic_craterlake_9x130
+    background: none
+    events_per_file: 500
+  D6c_9x275:
+    # As D6c_9x130, from dd4hep/9x275 of campaign 2026-11 (80 files of 500 events, 9x275-priority afterburner files).
+    dd4hep_dir: /data/zdc-autoresearch/msf-2026-11/dd4hep/9x275
+    file_glob: "msf_9x275_1000evt_*.edm4hep.root"
+    detector_config: epic_craterlake_9x275
+    background: none
+    events_per_file: 500
+  D6s_9x275:
+    # Phase 5 (loop v5, D-user-39): files 0001–0040 of D6c_9x275, the search half: every Phase 5 try; links to the same files.
+    dd4hep_dir: /data/zdc-autoresearch/msf-2026-11/dd4hep/9x275
+    file_glob: "msf_9x275_1000evt_*.edm4hep.root"
+    files: "0001–0040"
+    detector_config: epic_craterlake_9x275
+    background: none
+    events_per_file: 500
+  D6h_9x275:
+    # Phase 5 (loop v5, D-user-39): files 0041–0080 of D6c_9x275, the held-out half: Phase 5 checkpoints only; links to the same files.
+    dd4hep_dir: /data/zdc-autoresearch/msf-2026-11/dd4hep/9x275
+    file_glob: "msf_9x275_1000evt_*.edm4hep.root"
+    files: "0041–0080"
+    detector_config: epic_craterlake_9x275
+    background: none
+    events_per_file: 500
+  D6s_9x130:
+    # Phase 5 (loop v5, D-user-39): files 0001–0040 of D6c_9x130, the search half: every Phase 5 try; links to the same files.
+    dd4hep_dir: /data/zdc-autoresearch/msf-2026-11/dd4hep/9x130
+    file_glob: "msf_9x130_1000evt_*.edm4hep.root"
+    files: "0001–0040"
+    detector_config: epic_craterlake_9x130
+    background: none
+    events_per_file: 500
+  D6h_9x130:
+    # Phase 5 (loop v5, D-user-39): files 0041–0080 of D6c_9x130, the held-out half: Phase 5 checkpoints only; links to the same files.
+    dd4hep_dir: /data/zdc-autoresearch/msf-2026-11/dd4hep/9x130
+    file_glob: "msf_9x130_1000evt_*.edm4hep.root"
+    files: "0041–0080"
+    detector_config: epic_craterlake_9x130
+    background: none
+    events_per_file: 500
   D6b_farm:
     energies: [9x275, 9x130]
     files_per_energy: 100
     dd4hep_root: /work/eic3/users/romanov/meson-structure-2026-07/dd4hep
-    file_pattern: "msf_{energy}_1000evt_{index:04d}.edm4hep.root"   # Step 0 confirms against the farm listing
+    file_pattern: "msf_{energy}_1000evt_{index:04d}.edm4hep.root"   # confirmed by a farm listing 2026-11-04 (1000+ files in dd4hep/9x275); {msf}/docs/data.md says msf_ev1000_NNNN, which is wrong

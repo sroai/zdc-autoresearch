@@ -1,0 +1,9 @@
+# Phase 1 step 1 (clustering only): R0 + the PR XY distances 0.75 -> 0.3 side_length (code tier, install eicrecon-dist0p3; stock calibration)
+name: P1c_R0_dist
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: dist0p3
+parameters: {}
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: R0 + the PR XY distances 0.75 -> 0.3 side_length (code tier, install eicrecon-dist0p3; stock calibration)

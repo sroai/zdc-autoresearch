@@ -1,0 +1,10 @@
+# Phase 1 step 1 (clustering only): R1 - neighbourLayersRange (3 -> 1); R1's calibration kept
+name: P1d_R1_nlr1
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: R1
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:neighbourLayersRange: 1
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: R1 - neighbourLayersRange (3 -> 1); R1's calibration kept

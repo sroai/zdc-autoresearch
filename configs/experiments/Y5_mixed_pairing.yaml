@@ -1,0 +1,23 @@
+# Phase 5 try Y5 (loop v5): the ZDC Λ pairing with a photon in the B0 ECal. FarForwardNeutralsReconstruction's pairing
+# (X2–X9) assumes both photons in the ZDC: with one photon in B0 it still writes two ZDC clusters as photons (the true
+# one with a neutron fragment, or two fragments) and takes their energy from the neutron. Now every tagged ZDC cluster
+# with each B0 photon candidate (the B0 neutrals' leading clusters) is a hypothesis too, fitted with Y2's lever-arm
+# vertex; if one wins, only its ZDC cluster is a ZDC photon (the rest is the neutron) and LambdaReconstruction pairs it
+# with the B0 photon. Single-photon depth term × 3 (473/474 emulation plateau 2–4 on Y2's search half).
+# Patch space/notes/patches/Y5_mixed_pairing.patch (switch lambdaPairingMixed, default false, true in reco.cc) on
+# a15b0db6 + Y2_vertex_lever_arm.patch; build Y5; Y4's B0 island parameters. Switch proven on file 0001: off = Y4.
+# hypothesis: γ B0 + γ ZDC is 11 % of expected at 9x275; 474 on Y4's outputs emulates 195 → 383 found there (9x130
+# 32 → 55), all-ZDC unchanged (749 → 750). Predicted N_found 9x275 975 → ~1150, 9x130 123 → ~145 (the final Λ choice may
+# lose some of the emulated gain); purity up (the true triplet replaces a fragment pair in the window).
+name: Y5_mixed_pairing
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y5
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 1.0
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "a15b0db6 + Y2_vertex_lever_arm.patch + Y5_mixed_pairing.patch (install Y5) + Y4's B0 island parameters"

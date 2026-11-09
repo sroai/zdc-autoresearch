@@ -1,0 +1,18 @@
+# Phase 4 X2 scan (never scored as a try): Island, scale 30 mm, maxima ≥ 20 MeV
+# Build scanA = X1 + B11's ImagingTopoCluster knob (default off). Two D4 files (150, 275 GeV); judged by 470's
+# clustering-loss fraction. The Island variants rewire the ZDC CoG by InputTags, which F1c forbids in a try:
+# the chosen variant is wired in code when it becomes X2.
+name: SCAN_S4_isl30c20
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanA
+parameters:
+  ZDC:HcalFarForwardZDCClustersWithoutShapes:InputTags: "HcalFarForwardZDCIslandProtoClusters,HcalFarForwardZDCRawHitLinks,HcalFarForwardZDCRawHitAssociations"
+  ZDC:HcalFarForwardZDCIslandProtoClusters:splitCluster: 1
+  ZDC:HcalFarForwardZDCIslandProtoClusters:transverseEnergyProfileMetric: "localDistXY"
+  ZDC:HcalFarForwardZDCIslandProtoClusters:transverseEnergyProfileScale: 30
+  ZDC:HcalFarForwardZDCIslandProtoClusters:minClusterCenterEdep: 0.020
+  ZDC:HcalFarForwardZDCIslandProtoClusters:minClusterHitEdep: 0.000315
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X2 scan, Island, scale 30 mm, maxima ≥ 20 MeV"

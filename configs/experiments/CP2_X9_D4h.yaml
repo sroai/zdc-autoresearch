@@ -1,0 +1,10 @@
+# Phase 4 checkpoint 2 (F5): the current best X9 on the held-out D4h. Slim template.
+name: CP2_X9_D4h
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X9
+source_commit: f822e4d0
+parameters: {}
+nthreads: 1
+datasets: [D4h_lambda_heldout]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X9 — photon depth term in the Λ pairing"

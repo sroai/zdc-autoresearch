@@ -1,0 +1,11 @@
+# Phase 4 checkpoint 1 (F5): the current best X5 (X3 build + gammaZMaxOffset −691.4) on the held-out D4h. Slim template.
+name: CP1_X5_D4h
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X3
+source_commit: 50018ef8
+parameters:
+  reco:ReconstructedFarForwardNeutrals:gammaZMaxOffset: -691.4
+nthreads: 1
+datasets: [D4h_lambda_heldout]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X5 — photon candidates within 225 mm of the ZDC front face (gammaZMaxOffset −691.4 mm; r_pos is the centre)"

@@ -1,0 +1,16 @@
+# Phase 6 switch proof of Z1 (file 0001 of D6s_9x275): lambdaPairingCrystal = 1. Off must reproduce MSF6_Y9 exactly in
+# the ZDC neutrals, B0 neutrals and Lambdas (the crystal clustering changes, nothing reads it); on must change them.
+name: T6_z1_switch1
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Z1
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingCrystal: 1
+nthreads: 1
+datasets: [D6s_9x275]
+output_collections: ["EventHeader", "EcalFarForwardZDCClusters", "EcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Z1 switch proof"

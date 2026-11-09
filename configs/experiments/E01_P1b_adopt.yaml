@@ -1,0 +1,19 @@
+# Phase 2 E01 (2026-11-05): adopt P1b (ACCEPTED by the rule after D-user-16/17) as the current best.
+# Clustering = P1b. Rule 6: the refit coefficients of P1b's clustering (space/perf/calib-P1b_R0_thr.json) belong
+# to the current best; they are recorded here but NOT reconstructed (option b of the Phase 2 header): every
+# acceptance cell is a clustering cell or is judged after a per-clustering refit, and no photon is tagged on
+# 3×3 clusters with the stock box, so no accepted cell depends on them. The reference reco for Phase 2's paired
+# tests is P1b_R0_thr's. The coefficients enter the first reconstruction that needs them (the Λ family, B9).
+name: E01_P1b_adopt
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2
+recorded_calibration:            # not applied in any reco yet (see above)
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "1.765,0.919"
+  reco:ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "2.221,0.897"
+reference_reco: P1b_R0_thr
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: "current best of Phase 2 from E01 on; reco = P1b_R0_thr"

@@ -1,0 +1,18 @@
+# Phase 5 try Y3 (loop v5): the final Λ choice across detectors ranks triplets by
+# χ² = ((m_γγ − m_π⁰) / (0.1 m_π⁰))² + ((m_Λ,rec − m_Λ) / (w m_Λ))²; the stock w = 0.1 (112 MeV) is three times the
+# Λ mass resolution, so a triplet with a good π⁰ mass and a poor Λ mass can win. w = 0.036 (40 MeV, the value Phase 4
+# chose for the ZDC-internal pairing, X3). The mass only ranks discrete choices (F3). Parameter on the Y2 install (stacked
+# on the accepted Y2, rewritten before launch).
+# hypothesis: in γ B0 + γ ZDC another triplet is chosen for 26 % (about 200 Λ per 9x275 search half); a tighter Λ term
+# picks the true one for some of them. Predicted N_found (on Y2): 9x275 953 → ~985, 9x130 83 → ~87; N_window up (the chooser
+# prefers in-window masses, true or not), purity down ~1 point.
+name: Y3_lambda_mass_rank
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y2
+source_commit: a15b0db6
+parameters:
+  reco:ReconstructedLambdas:lambdaMassWindow: 0.036
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Y2 install (a15b0db6 + Y2_vertex_lever_arm.patch) + reco:ReconstructedLambdas:lambdaMassWindow 0.036 (parameter)"

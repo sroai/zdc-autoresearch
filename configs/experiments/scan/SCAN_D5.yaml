@@ -1,0 +1,12 @@
+# Phase 4 X4 diagnostic (never scored): split seed 5 MeV, no merge, Λ pairing OFF so every tagged cluster is a photon
+# neutral; 471 then measures the oracle and the pairing rule on split clusters. Build scanC. Slim template.
+name: SCAN_D5
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanC
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:splitSeedEdep: 0.005
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingHcalZDC: 0
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X4 diagnostic: split 5 MeV, pairing off"

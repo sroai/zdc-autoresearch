@@ -1,0 +1,11 @@
+# Phase 2 E02_chain480 (2026-11-05): B3: chaining threshold minClusterHitEdep 315 -> 480 keV (3 MIP-equivalent per subcell) on the current best
+name: E02_chain480
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterHitEdep: 0.00048
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: "B3: chaining threshold minClusterHitEdep 315 -> 480 keV (3 MIP-equivalent per subcell) on the current best"

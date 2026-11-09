@@ -1,0 +1,17 @@
+# Phase 5 try Y4 (loop v5): Y1's B0 island splitting retried on top of the accepted Y2 (vertex lever arm), as the loop
+# keeps an INCONCLUSIVE try for a combined retry. Y2's install (a15b0db6 + Y2_vertex_lever_arm.patch) + Y1's parameters.
+# hypothesis: Y1 resolved both B0 photons for ~50 more Λ at 9x275 and ~65 at 9x130 in the γγ-in-B0 regime, but their mass
+# failed; Y2 fixed the depth range for that regime (0 → 5 and 1 → 15 found). Together: γγ-in-B0 found 9x275 5 → ~20,
+# 9x130 15 → ~35. Predicted N_found 9x275 953 → ~968, 9x130 83 → ~103; purity flat (Y1 cost 0.8 point alone).
+name: Y4_b0_split_on_y2
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y2
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 1.0
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "a15b0db6 + space/notes/patches/Y2_vertex_lever_arm.patch (install Y2) + Y1's B0 splitting parameters"

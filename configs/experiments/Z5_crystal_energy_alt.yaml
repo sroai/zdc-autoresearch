@@ -1,0 +1,27 @@
+# Phase 6 try Z5 (loop v6, free choice): a tagged Hcal photon with a crystal cluster in front of it competes with the
+# crystal law's energy (the leading crystal cluster in front and its 60 mm column: σ 10–11 % on the guns, against 24–34 %
+# for the Hcal law at 5–50 GeV). Every hypothesis with such a photon is scored with either energy; if the crystal law's
+# wins, the photon carries it and links the crystal cluster after its Hcal cluster. Z3's outright replacement lost the Λ
+# at 9x275 (−107); as a competing hypothesis the chooser keeps the Hcal law's energy where it fits better.
+# Switch crystalEnergyAlternative (default false, true in reco.cc), proven on file 0001: off = Z4 identical, on changes 68
+# of 500 events. Patch space/notes/patches/Z5_crystal_energy_alt.patch on a15b0db6 + Y2 + Y5 + Y9 + Z1b; build Z5.
+# hypothesis: 477 --alt on Z4's settings (σ_Λ 0.03): 9x275 +317 vs +170 (Z4's emulation), window +547 vs +470; 9x130 +32 vs
+# +19, window +82 vs +90: emulated +160 found over Z4 at a nearly flat window. N_found 1409 → ~1556, 237 → ~250; purity up.
+name: Z5_crystal_energy_alt
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Z5
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+  reco:ReconstructedFarForwardNeutrals:crystalClusterEmin: 0.3
+  reco:ReconstructedFarForwardNeutrals:crystalColumnRadius: 60
+  reco:ReconstructedFarForwardNeutrals:crystalGammaLaw: "1.9092,44.768,-0.8984"
+  reco:ReconstructedFarForwardNeutrals:crystalColumnNeutronScale: 36.63
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingLambdaSigma: 0.03
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Z4 (Z2 parameters + σ_Λ 0.03) on install Z5 (crystalEnergyAlternative true in reco.cc)"

@@ -1,0 +1,19 @@
+# Phase 5 try Y2 (loop v5): the Λ decay vertex with each daughter's own lever arm. LambdaReconstruction takes the Λ
+# slope as sum(p_i x_i) / sum(p_i z_i), right when the three impact points share one depth; a B0 photon (z ≈ 7 m)
+# beside ZDC daughters (z ≈ 35 m) is then weighted down by ~7/35. Now the slope for a vertex at depth z is
+# sum(w_i x_i⊥) / (P + z sum(w_i)), w_i = p_i / (z_i − z) (exact at small angles, equal to the stock form at one
+# depth), recomputed at each bisection step, and the depth range ends short of the nearest impact point.
+# Patch space/notes/patches/Y2_vertex_lever_arm.patch on EICrecon a15b0db6; build label Y2.
+# hypothesis: in γ B0 + γ ZDC (11.0 % of expected at 9x275) the true triplet's mass sits +23.6 MeV high (47 % above
+# +30 MeV) and another triplet is chosen for 26 %; a correct vertex pulls the mass toward m_Λ. Predicted N_found on the
+# search halves: 9x275 920 → ~990 (about +40 of the 173 out-of-window and +30 of the 200 wrong-triplet Λ in the regime),
+# 9x130 ~65 → ~80; all-ZDC unchanged within ±10; purity up slightly (in-window candidates follow the true ones).
+name: Y2_vertex_lever_arm
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y2
+source_commit: a15b0db6
+parameters: {}
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "a15b0db6 + space/notes/patches/Y2_vertex_lever_arm.patch (uncommitted, no please-git)"

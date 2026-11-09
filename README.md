@@ -15,7 +15,7 @@ statistics). `docs/zdc-problem.md` has the whole story.
 |---|---|
 | `zdc-setup.md` | everything specific to this program: pins, paths, datasets, the scoreboard, the acceptance rule, budgets, the frozen list |
 | `work-common.md` | the rules of every run: environment, FIX / DECIDE / ASK / PARK / STOP, memory, findings, writing, coding, git |
-| `zdc-autoresearch-loop-v2.md` | the phases: 0 foundation, 1 dissect PR 3064, 2 parameter loop, 3 algorithm loop, 4 confirmation at scale and the PR draft |
+| `zdc-autoresearch-loop-v3.md` (v2 kept for the finished Phases 0 and 1) | the phases: 0 foundation, 1 dissect PR 3064, 2 parameter loop (closed), 3 the Λ chain then the algorithm loop, 4 confirmation at scale and the PR draft |
 
 `autoresearch-loops.md` surveys every autoresearch loop in `~/dev` (what
 existed, what worked, what had to change). `zdc-autoresearch-loop-v1.md` is
@@ -32,7 +32,7 @@ subcell columns below the 24.4 mm pitch) as the first hypothesis.
 ## Start a run
 
 ```
-Read zdc-setup.md, work-common.md and zdc-autoresearch-loop-v2.md. Run.
+Read zdc-setup.md, work-common.md and zdc-autoresearch-loop-v3.md. Run.
 ```
 
 That is the whole start line, typed into Claude Code in this folder (auto

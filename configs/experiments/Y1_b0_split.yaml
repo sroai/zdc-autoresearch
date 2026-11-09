@@ -1,0 +1,19 @@
+# Phase 5 try Y1 (loop v5): split the B0 ECal island clusters at local maxima, with the shared hits weighted by the
+# distance in crystal units (exp(-d / 1 cell) × peak energy) instead of η-φ distance at scale 1, which at B0 shares
+# by peak energy alone. Parameters only, on the X9 install (EICrecon a15b0db6); no patch.
+# hypothesis: with both photons in B0 (4.0 % of expected at 9x275, 3.5 % at 9x130) the island clustering merges the
+# pair for 93 % of the Λ; split at the two maxima, LambdaReconstruction gets both photons. Predicted N_found on the
+# search halves: 9x275 920 → ~960, 9x130 ~65 → ~95 (+30 from γγ-in-B0 at each beam, minus a few from split mixed-regime
+# photons); purity flat or down by < 1 point.
+name: Y1_b0_split
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X9
+source_commit: f822e4d0
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 1.0
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X9 install + B0 island splitting (parameters), no code change"

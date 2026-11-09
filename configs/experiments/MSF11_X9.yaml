@@ -1,0 +1,12 @@
+# Post-close study (D-user-38): X9, the final Phase 4 row, on the campaign 2026-11 MSF samples D6c (40 000 events
+# per beam) for the Λ → nπ⁰ regime study (scripts/210_msf_lambda_regimes.py). Slim template plus the B0 and EEMC-P
+# cluster associations, so 210 matches B0 / EEMC-P photons without an R1 output. Reported, never selected on.
+name: MSF11_X9
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X9
+source_commit: f822e4d0
+parameters: {}
+nthreads: 1
+datasets: [D6c_9x130, D6c_9x275]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X9 on campaign 2026-11 MSF (9x130, 9x275) for the regime study"

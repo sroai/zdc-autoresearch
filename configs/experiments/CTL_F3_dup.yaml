@@ -1,0 +1,12 @@
+# Phase 4 Step 0 item 2, damaged control for F3: R1 (PR 3064) plus two damages (gate-controls/phase4/ctlF3-full.patch,
+# install eicrecon-ctlF3, never committed): LambdaReconstruction writes a second copy of every candidate (F3a), and every
+# ZDC photon neutral links all clusters of the event after its own (F3c, F3f). One D4 file (275 GeV) in
+# gate-controls/phase4/ctlF3. The static F1 checks of this row read the pin (no commit holds the damage).
+name: CTL_F3_dup
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: ctlF3
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: F3 control (two candidates, photon links all)

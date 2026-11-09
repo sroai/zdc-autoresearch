@@ -1,0 +1,16 @@
+# Phase 3, Λ family, B9e: the neutron at its reference point (finding F10) on top of R3 (PR 3063).
+# LambdaReconstruction reads the neutron's position from getClusters(0); the ZDC neutrals factory links
+# every cluster of the event to the neutron (associateAllClustersToNeutron), so cluster 0 is the event's
+# first cluster, not the neutron's leader. The neutron's referencePoint is its leader's position.
+# Patch: space/notes/patches/B9e_neutron_leader.patch (pin → R3 + that one line), build label B9e.
+# Built on R3, judged against R3 (D-default-39, D-default-40); R2's clustering and parameters.
+name: B9e_neutron_leader
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: B9e
+parameters:
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+nthreads: 1
+datasets: [D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
+output_collections: [".*"]
+notes: the one-line F10 fix on PR 3063; the paired tests run on R3's events

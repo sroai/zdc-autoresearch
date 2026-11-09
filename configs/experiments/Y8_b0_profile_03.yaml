@@ -1,0 +1,19 @@
+# Phase 5 try Y8 (loop v5): Y6 narrowed the B0 split sharing exp(−d / s) from s = 1.0 to 0.5 crystal and gained +80 (z +8.1);
+# s = 0.3 narrows it further. Parameters on the Y5 install with Y7's B0 photon law.
+# hypothesis: γγ-in-B0 is still the regime with the most B0 losses (9x275 87 of 264 found, 9x130 97 of 264); a sharper
+# share keeps more of each photon in its own cluster. Predicted N_found 1238 → ~1250, 190 → ~200; but at s = 0.3 a hit one
+# crystal from a peak keeps only e^−3.3 of its weight there, so the energy of a photon's shower tail may go to the wrong
+# maximum: the gain may stop or turn. Purity flat.
+name: Y8_b0_profile_03
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y5
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Y7 with the B0 split sharing scale 0.3"

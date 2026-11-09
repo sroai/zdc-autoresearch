@@ -6,7 +6,7 @@ name: R0_stock
 eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df   # a commit of submodules/EICrecon; the install is install/eicrecon-<sha12>
 parameters: {}                                            # -P<factory>:<param>=<value> overrides; none for the reference
 nthreads: 1                                               # references and gate runs are single-threaded (deterministic output)
-datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local]
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
 # podio:output_collections entries are regular expressions (JEventProcessorPODIO compiles them);
 # a bare `*` is a regex error. `.*` keeps everything, which the G4 gate on the DIS samples needs.
 output_collections: [".*"]

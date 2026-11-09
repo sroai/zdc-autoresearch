@@ -1,0 +1,13 @@
+# Phase 4 X7: calibration samples (D2 photons, D3 neutrons) for the photon-core split K3 (seed 5 MeV, layers ≤ 6, 50 mm),
+# for 420's refit. Build scanD. Slim template (420 reads 410's tables only).
+name: SCAN_K3cal
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanD
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitSeedEdep: 0.005
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitMaxLayer: 6
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitMinDistXY: 50
+nthreads: 1
+datasets: [D2_photon, D3_neutron]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X7 refit samples: core split K3"

@@ -1,0 +1,11 @@
+# Phase 1 step 1 (clustering only): R1 - the threshold pair (5 -> 25 MeV, 2 -> 10 hits); R1's calibration kept
+name: P1e_R1_thr
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: R1
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.025
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 10
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: R1 - the threshold pair (5 -> 25 MeV, 2 -> 10 hits); R1's calibration kept

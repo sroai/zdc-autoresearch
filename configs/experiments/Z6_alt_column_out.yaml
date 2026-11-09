@@ -1,0 +1,27 @@
+# Phase 6 try Z6 (loop v6, free choice; Q22): Z5 measures the Λ energy high (reco / true median 1.110 vs Z4's 1.073 on the
+# same Λ) and −t worse at 9x275 (σ68 0.142 vs 0.122 GeV²). When a tagged Hcal photon carries the crystal law's energy, its
+# Hcal column beyond its own cluster (column × 36.63 − the cluster's energy) stays in the neutron, so it counts twice. Z6
+# removes it from the neutron, as Z2 does for crystal photons (switch crystalAltColumnOut, default false, here true).
+# Patch space/notes/patches/Z6_alt_column_out.patch on a15b0db6 + Y2 + Y5 + Y9 + Z1b + Z5; build Z6.
+# hypothesis: 477 --alt on Z5's settings, with and without the column out (9x275): net +303 vs +317, window +558 vs +547,
+# Λ energy / true of good picks 1.058 vs 1.122 (σ68 0.113 vs 0.129); 9x130 +32 vs +32, 1.076 vs 1.126. Predicted N_found
+# 1574 → ~1560, 252 → ~252 (no gain for 463); −t σ68 at 9x275 0.147 → below Z4's 0.122.
+name: Z6_alt_column_out
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Z6
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+  reco:ReconstructedFarForwardNeutrals:crystalClusterEmin: 0.3
+  reco:ReconstructedFarForwardNeutrals:crystalColumnRadius: 60
+  reco:ReconstructedFarForwardNeutrals:crystalGammaLaw: "1.9092,44.768,-0.8984"
+  reco:ReconstructedFarForwardNeutrals:crystalColumnNeutronScale: 36.63
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingLambdaSigma: 0.03
+  reco:ReconstructedFarForwardNeutrals:crystalAltColumnOut: 1
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Z5 on install Z6 with crystalAltColumnOut: the crystal-law Hcal photon's column beyond its cluster leaves the neutron"

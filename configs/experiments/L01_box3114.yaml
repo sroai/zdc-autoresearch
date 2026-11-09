@@ -1,0 +1,16 @@
+# Λ family L01 (D-user-14, D-default-25; 2026-11-05): the current best (E01 = P1b clustering with its refit
+# calibration, rule 6) + PR eic/EICrecon#3114's photon box (gammaMaxLength 110, gammaMaxWidth 22 mm).
+# Clustering identical to P1b: S0 is unchanged by construction; judged on S4a_tm with the fixed scoring window.
+name: L01_box3114
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "1.765,0.919"
+  reco:ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "2.221,0.897"
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
+output_collections: [".*"]
+notes: "Λ family: current best + PR 3114 box, with the current best's refit calibration"

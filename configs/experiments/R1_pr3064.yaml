@@ -1,28 +1,12 @@
-# Reference R1 as a parameter config: PR 3064's six parameter changes on the
-# pinned main build. The PR's two other changes, the XY neighbour distances
-# 0.75 → 0.3 × side_length (36.6 → 14.64 mm, below the 24.4 mm subcell pitch),
-# are NOT JANA parameters: ImagingTopoCluster_factory.h keeps their ParameterRef
-# commented out (vector<variant<string,double>>). The reference R1 therefore
-# comes from the code build `--label R1` (the PR's three-file diff applied to
-# the pin, space/notes/patches/R1_pr3064.patch); this file is the Phase 0 switch
-# test for the six parameters and, if Step 0 item 7 chose to expose the
-# distances, the full parameter form (add the two lines then).
+# Reference R1: the pin plus PR 3064's three-file diff (space/notes/patches/R1_pr3064.patch),
+# built with `scripts/102_build_eicrecon.sh --label R1`. The patch changes the six parameters of
+# R1param_pr3064.yaml and the XY neighbour distances (0.75 → 0.3 × side_length), which are not
+# JANA parameters. Stock parameters on top of the patched build.
 name: R1_pr3064
 eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: R1                                         # install/eicrecon-R1 instead of install/eicrecon-<sha12>
+parameters: {}
 nthreads: 1
-parameters:
-  HcalFarForwardZDCImagingProtoClusters:neighbourLayersRange: 3            # stock 1
-  HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005        # GeV (dd4hep units): 5 MeV; stock 0.025
-  HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2                 # stock 10
-  ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "16.65,0.66" # stock 2.4,0.89 — fitted on the PR's column clusters
-  ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "2.7,1.27"     # stock 1.1,0.98
-  ReconstructedFarForwardNeutrals:gammaMaxLength: 150                        # stock 100 (dd4hep mm)
-  # Step 0 item 7 (a) only:
-  # HcalFarForwardZDCImagingProtoClusters:sameLayerDistXY: "1.464,1.464"    # dd4hep cm, if exposed as a 2-vector parameter
-  # HcalFarForwardZDCImagingProtoClusters:diffLayerDistXY: "1.464,1.464"
-datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local]
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
 output_collections: [".*"]
-notes: >
-  eicrecon runs with parameter strictness 2, so a misspelt name aborts the
-  run; the switch test (Phase 0 item 9) catches registered-but-inert ones, on
-  the dataset where each parameter acts.
+notes: the candidate; its scoreboard row is the first thing Phase 1 explains

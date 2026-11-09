@@ -1,0 +1,11 @@
+# Phase 5 Step 0 item 4 (loop v5): X1 (Phase 4's first accepted try) on the search halves with the MSF template:
+# 463 must ACCEPT the base row X9 over it and REJECT the reverse. Never a selector.
+name: CTL5_X1_msf
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X1
+source_commit: c2632b19
+parameters: {}
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X1 (offline chain built in) on the search halves, MSF template"

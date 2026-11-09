@@ -1,0 +1,12 @@
+# Phase 4 X4 scan (never scored as a try): watershed split of the ZDC imaging topo-clusters at local maxima
+# above 20 MeV (splitSeedEdep), build scanB = X3 + the split knob (default off). Two D4 files (150, 275 GeV);
+# judged by the clean-cluster fraction and the S4a_tm count with X3's chain and calibration.
+name: SCAN_W20
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanB
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:splitSeedEdep: 0.02
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X4 scan, watershed split, seed 20 MeV"

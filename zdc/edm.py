@@ -24,6 +24,34 @@ def read_collection(paths, collection, fields):
     return {f: arrays[f"{collection}.{f}"] for f in fields}
 
 
+def read_vector_member(paths, collection, member, index):
+    """One element of a VectorMember (e.g. Cluster.shapeParameters) per object, flat over files and events.
+
+    podio stores a VectorMember as `<collection>.<member>_begin/_end` indices into the
+    per-event vector `_<collection>_<member>`; there is no `<collection>.<member>` leaf.
+    Returns a float array with one entry per object (NaN where the vector is shorter
+    than index + 1), in the same order as ak.flatten of the collection's fields.
+    """
+    paths = [str(p) for p in (paths if isinstance(paths, (list, tuple)) else [paths])]
+    out = []
+    for path in paths:
+        with uproot.open(path) as f:
+            t = f["events"]
+            begin = t[f"{collection}/{collection}.{member}_begin"].array(library="ak")
+            end = t[f"{collection}/{collection}.{member}_end"].array(library="ak")
+            vec_name = f"_{collection}_{member}"
+            vec_key = next(k for k in t.keys() if k == vec_name or k.startswith(vec_name + "/"))
+            values = t[vec_key].array(library="ak")
+        for b, e, v in zip(begin, end, values):
+            b, e, v = ak.to_numpy(b), ak.to_numpy(e), ak.to_numpy(v)
+            idx = b + index
+            ok = idx < e
+            row = np.full(len(b), np.nan)
+            row[ok] = v[idx[ok]]
+            out.append(row)
+    return np.concatenate(out) if out else np.array([])
+
+
 def list_collections(path):
     """Collection names present in a file's `events` tree (the podio branch names without leaves)."""
     with uproot.open(path) as f:
@@ -63,6 +91,10 @@ def fit_peak(values, center, half_width, bins=100):
     except (RuntimeError, ValueError):
         return None
     errors = np.sqrt(np.diag(cov))
+    # A fit whose mean leaves the window, or whose width exceeds it, describes no peak (on a flat or
+    # multi-modal distribution curve_fit can return μ = −137 for a ratio near 1): no fit.
+    if not (abs(coeff[1] - center) <= half_width and abs(coeff[2]) <= 2 * half_width and np.all(np.isfinite(errors))):
+        return None
     return float(coeff[1]), float(abs(coeff[2])), float(errors[1]), float(errors[2]), int(len(window))
 
 
@@ -87,3 +119,13 @@ def sha256_of(path, block=1 << 20):
         while chunk := f.read(block):
             h.update(chunk)
     return h.hexdigest()
+
+
+def collection_ids(path):
+    """{collection name: podio collectionID} from podio_metadata; relation branches (`_X_rel.collectionID`)
+    store these IDs, so they tell which collection a relation points into."""
+    with uproot.open(path) as f:
+        info = f["podio_metadata"].arrays(["events___CollectionTypeInfo.name", "events___CollectionTypeInfo.collectionID"])
+    names = info["events___CollectionTypeInfo.name"][0].tolist()
+    ids = info["events___CollectionTypeInfo.collectionID"][0].tolist()
+    return dict(zip(names, ids))

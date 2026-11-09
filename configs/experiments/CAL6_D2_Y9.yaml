@@ -1,0 +1,16 @@
+# Phase 6 calibration input (loop v6, F4): the photon guns D2 (20–275 GeV) and D2c (5–15 GeV, D-user-42) through Y9, with
+# the crystal and Hcal rec hits, for the crystal-seeded photon law E_γ = f(crystal energy, Hcal column energy) — fitted on
+# guns only, never on D6. Never a selector.
+name: CAL6_D2_Y9
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y9
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+nthreads: 1
+datasets: [D2c_photon_low, D2_photon]
+output_collections: ["EventHeader", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "EcalFarForwardZDCClusterAssociations", "ReconstructedHcalFarForwardZDCNeutrals"]
+notes: "calibration input for the crystal-seeded photon law, Y9 clustering"

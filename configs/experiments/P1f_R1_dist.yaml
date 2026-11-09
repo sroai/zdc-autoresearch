@@ -1,0 +1,14 @@
+# Phase 1 step 1 (clustering only): R1 - the distances = the six PR parameters on the pin (R1param_pr3064 restricted to the Phase 1 datasets)
+name: P1f_R1_dist
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:neighbourLayersRange: 3
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2
+  reco:ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "16.65,0.66"
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "2.7,1.27"
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 150
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: R1 - the distances = the six PR parameters on the pin (R1param_pr3064 restricted to the Phase 1 datasets)

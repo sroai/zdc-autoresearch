@@ -1,0 +1,10 @@
+# Phase 4 Step 0 item 2, damaged control for F1 (static): the pin with the stock neutrals factory reading
+# HcalFarForwardZDCTruthClusters, so truth clusters feed the scored ReconstructedLambdas (Rt in place).
+# Source tree: /data/zdc-autoresearch/gate-controls/phase4/ctlF1_inplace (460 --tree). Never built, never scored.
+name: CTL_F1_inplace
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: F1 control (static walk)

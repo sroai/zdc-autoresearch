@@ -1,0 +1,15 @@
+# Phase 4 X1: the offline Λ chain built into EICrecon (loop v4, order of work 1).
+# Commit on zdc-autoresearch/phase4 (source_commit below, filled at commit time), build label X1, patch
+# space/notes/patches/X1_offline_chain.patch. Code, no parameters: R1's clustering (PR 3064) with
+# neighbourLayersRange 1 (P1d); P1d's refit calibration from D2/D3 (photon 3.901·E^0.876, neutron 8.064·E^0.700);
+# LambdaReconstruction = R3's fit-every-triplet ranking + B9e's neutron at its leader + B9d's stable vertex.
+# Judged against R1_pr3064 (the best in-EICrecon S4a_tm row at the start of Phase 4).
+name: X1_offline_chain_repeat
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X1
+source_commit: c2632b19
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: determinism repeat of X1 (D4 175 GeV), compared with 130 against the 300 output

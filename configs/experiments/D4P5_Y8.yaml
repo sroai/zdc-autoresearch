@@ -1,0 +1,15 @@
+# Phase 5 close (D-user-41): try Y8 (Y8_b0_profile_03) on the D4 Λ gun with Phase 4's slim template, so the Phase 5 deck can
+# give every try Phase 4's columns (S4a_tm per thrown Λ → nπ⁰, mean over 100–275 GeV and at 275 GeV). Reported only.
+name: D4P5_Y8
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y5
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Y8_b0_profile_03 on D4 for the Phase 4 columns"

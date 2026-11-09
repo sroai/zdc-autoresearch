@@ -1,0 +1,12 @@
+# Reference Rt: the pin plus space/notes/patches/truthchain.patch (a second FarForwardNeutralsReconstruction
+# and LambdaReconstruction instance fed with HcalFarForwardZDCTruthClusters, writing ReconstructedLambdasTruth),
+# built with `scripts/102_build_eicrecon.sh --label truthchain`. The S4a ceiling: the Λ efficiency of the frozen
+# LambdaReconstruction under perfect ZDC clustering. Run on D4 only.
+name: Rt_truthchain
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: truthchain
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: the truth-cluster ceiling of S4a (Phase 0 item 12)

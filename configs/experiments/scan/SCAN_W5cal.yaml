@@ -1,0 +1,11 @@
+# Phase 4 X4: the calibration samples (D2 photons, D3 neutrons) for the split clustering at seed 5 MeV, for 420's refit.
+# Build scanC. Slim template (420 reads 410's tables only).
+name: SCAN_W5cal
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanC
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:splitSeedEdep: 0.005
+nthreads: 1
+datasets: [D2_photon, D3_neutron]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X4 refit samples: split 5 MeV"

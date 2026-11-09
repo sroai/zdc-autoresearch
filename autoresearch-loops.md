@@ -253,3 +253,22 @@ reconstruction the reviewers merge. What changed:
 - Karpathy autoresearch: https://github.com/karpathy/autoresearch (program.md), nanochat README; secondary: https://blog.agihouse.org/posts/autoresearch-research-brief , https://cameronwestland.com/autoresearch-is-reward-function-design/ , https://www.webfuse.com/autoresearch
 - Reward hacking: https://facebookresearch.github.io/RAM/blogs/hackbench/ , https://arxiv.org/pdf/2608.30724
 - AI Scientist: https://sakana.ai/ai-scientist-nature/ , https://www.nature.com/articles/s41586-026-10265-5
+
+## 8. What try 1 changed (v2 → v3, 2026-11-06)
+
+Try 1 (2026-11-04/05, 22.5 h, 141 CPU-h, 12 judged experiments, one
+accepted) is reviewed in `try1-expert.md` (the run agent's self-review)
+and `try1-assessment.md` (the designer's assessment; verdict: modify and
+continue as try 2 under loop v3, not a restart). The loop worked as an
+instrument (pre-registration, paired test, held-out, guards) and aimed at
+the wrong family: it measured the cap of the deliverable in Phase 0 and
+ran two phases inside it. v3 adds: a re-rank rule when a ceiling is
+measured; the Λ family judged on the Λ yield and an offline Λ chain that
+ties every clustering row to a yield; the cost per experiment cut by
+restricting output collections; preflight and integrity checks in the
+launcher; predictions and headline numbers as script output; PNG plots;
+the G4 evidence published (gate table, capybara views). Protocol
+revisions between runs are patches the user applies, since the hook
+freezes the protocol files and the harness refuses the agent's edit of
+the freeze list.
+

@@ -2,7 +2,7 @@
 
 Three files run a program. The **setup file** (`zdc-setup.md`) holds what is
 specific to this program: paths, pins, datasets, metrics, budgets, the
-variables below. The **loop file** (`zdc-autoresearch-loop-v2.md`) holds the
+variables below. The **loop file** (`zdc-autoresearch-loop-v3.md`) holds the
 phases: each phase's task, its ruler (what "correct" means in that phase),
 its Step 0, its done criterion and extra decision-table rows. This file holds
 the rules of every run: the environment, the work protocol, the FIX / DECIDE /
@@ -36,7 +36,8 @@ never redefines what the ones above mean.
 - **Program** — one setup file, one loop file, one `{ledger}`, one `{space}`.
   It spans phases.
 - **Phase** — one entry of the ledger: a task with a Step 0, a ruler and a
-  done criterion. A phase takes one or several runs.
+  done criterion. A phase takes one or several runs. 
+  Usually results of a phase are checked by a human before continuation
 - **Run** — one autonomous invocation of you on the plan. It starts with the
   start protocol (read STATUS.md, process QUESTIONS.md) and ends in one of
   four ways:
@@ -105,11 +106,22 @@ never redefines what the ones above mean.
   record, where the user can veto it.
 - Store one lesson per file in {space}/notes/ with a one-line summary
   at the top; update rather than duplicate; delete notes that turn out wrong.
+  A lesson's rule changes the config or script that caused the trap in the
+  same step, and the lesson names that edit (try 1 wrote the disk lesson and
+  left the cause in the config template).
   A lesson that generalizes beyond this program is promoted the same day
   (Memory section).
 - Put plots in {space}/plots/phase{#}/ and write results up in
   {space}/reports/phase{#}_.... Previous results, plots and knowledge must
-  persist as you progress.
+  persist as you progress. Every plot is a PNG; a tool that writes PDF gets
+  a PNG beside it (the setup file, Review delivery, names the converter).
+- Every timestamp you write into the ledger, the run log, DECISIONS.md or
+  QUESTIONS.md comes from `date -u` in the command that writes the entry,
+  never from your own sense of time (try 1 wrote some early timestamps ahead
+  of the clock).
+- A headline number (a report line, a chat line, a deck number) comes from a
+  script's output file, never from arithmetic in chat; the setup file names
+  the script.
 - Record every decision that constrains later work in
   {space}/notes/DECISIONS.md (format in the Memory section). Tie decisions
   to evidence and measured numbers; the numbers themselves stay in the

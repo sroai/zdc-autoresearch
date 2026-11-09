@@ -1,0 +1,14 @@
+# Phase 5 checkpoint 1 (loop v5): the current best Y6 on the D4 Λ gun with Phase 4's slim template, so 410 / 441 report its
+# S4a_tm per thrown Λ → nπ⁰ beside X9's (7.436 % mean, 14.101 % at 275 GeV). Reported, never selected on.
+name: CP5_1_Y6_D4
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y5
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.5
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "checkpoint 1 of Phase 5: Y6 (a15b0db6 + Y2 + Y5 patches, B0 parameters) on D4"

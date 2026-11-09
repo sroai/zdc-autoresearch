@@ -1,0 +1,14 @@
+# Phase 4 X4: the photon tag's depth limit 400 -> 225 mm past the ZDC face (gammaZMaxOffset), a parameter try on X3's
+# build (commit 50018ef8, accepted). True-photon clusters sit at 126 mm median depth (p90 172 mm), other tagged clusters at
+# 280 mm (p10 163 mm); fewer fragment candidates for the Λ pairing, and the deep tagged clusters join the neutron.
+# Chosen at the centre of the 200-225 mm plateau of 471 on X1's events. Slim template (D-default-45). Judged against X3.
+name: X4_photon_depth
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X3
+source_commit: 50018ef8
+parameters:
+  reco:ReconstructedFarForwardNeutrals:gammaZMaxOffset: 225
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X4 — photon tag depth limit 225 mm (parameter try on X3)"

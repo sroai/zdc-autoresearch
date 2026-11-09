@@ -1,0 +1,26 @@
+# Phase 6 try Z1 (loop v6): crystal-seeded ZDC photons. The LYSO crystal section is clustered at the crystal scale
+# (ZDC.cc: islands of the 8 neighbouring crystals, split at local maxima ≥ 0.1 GeV, energy shared on a 2 cm profile),
+# and the ZDC Λ pairing takes its clusters as photon candidates (FarForwardNeutralsReconstruction, 5th input
+# EcalFarForwardZDCClusters): a crystal cluster ≥ 0.5 GeV with no tagged Hcal cluster within 60 mm behind it (veto
+# split: unless two or more sit in front of the same tagged cluster) is a photon at the crystal position, energy
+# 1.962·E_crys + 47.47·E_column − 0.881 (the Hcal rec-hit energy within 45 mm of the line from the IP; law fitted on the
+# guns D2 + D2c through Y9, 477 --fit-guns), at least E_crys; its column leaves the neutron. Hypotheses crystal + tagged
+# Hcal photon, crystal + crystal, crystal + B0 photon compete with Y9's (ZDC pairs, mixed, B0 pair); a crystal photon's
+# photon-depth term −10. Switch lambdaPairingCrystal (default false, true in reco.cc).
+# Patch space/notes/patches/Z1_crystal_photons.patch on a15b0db6 + Y2 + Y5 + Y9; build Z1; Y9's parameters carried.
+# hypothesis: 637 of 1422 missing all-ZDC photons at 9x275 have a pure crystal cluster; the 477 emulation on MSF6_Y9
+# (veto split, depth −10) predicts net +118 (9x275: all-ZDC +114, γ B0 + γ ZDC +7, γγ B0 −3) and +15 (9x130), N_window
+# +122 / +18. Predicted N_found 1267 → ~1385, 219 → ~234; purity 26.7 → ~28.4 % pooled.
+name: Z1_crystal_photons
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Z1
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "a15b0db6 + Y2 + Y5 + Y9 + Z1 patches (install Z1) + Y9's B0 parameters"

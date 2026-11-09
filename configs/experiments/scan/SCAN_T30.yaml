@@ -1,0 +1,11 @@
+# Phase 4 scan (never scored as a try): ZDC cluster floor minClusterEdep 50 -> 30 MeV (visible energy) on X5b
+# (57b698c4): the daughters with no cluster at all (3.5-9 % of D4 events) are mostly low-energy photons. Slim template.
+name: SCAN_T30
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X5b
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterEdep: 0.03
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "scan T30: cluster floor 30 MeV"

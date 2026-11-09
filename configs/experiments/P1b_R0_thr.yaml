@@ -1,0 +1,10 @@
+# Phase 1 step 1 (clustering only): R0 + the PR threshold pair minClusterCenterEdep 25 -> 5 MeV, minClusterNhits 10 -> 2 (stock calibration)
+name: P1b_R0_thr
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: R0 + the PR threshold pair minClusterCenterEdep 25 -> 5 MeV, minClusterNhits 10 -> 2 (stock calibration)

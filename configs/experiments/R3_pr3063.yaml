@@ -1,0 +1,15 @@
+# Reference R3 (loop v3, Phase 3 Step 0 item 7; setup file, References): R2 + PR eic/EICrecon#3063
+# (Baptiste Fraïsse, head 364a310a): the π⁰ and Λ mass windows removed, IDOLA on every (n, γ, γ)
+# triplet, candidates ranked by the χ² of the two masses after the vertex, the best one always written.
+# One-file patch on the pin (space/notes/patches/R3_pr3063.patch), built with --label R3; R2's
+# parameters (the photon box of PR 3114). Clustering = R0's, so S0 is R0's by construction.
+name: R3_pr3063
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: R3
+parameters:
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+nthreads: 1
+datasets: [D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
+output_collections: [".*"]
+notes: the Λ chain upstream proposes, on R2; B9d is judged against it

@@ -1,0 +1,22 @@
+# Phase 3 B11 (2026-11-07, code tier, clustering): "chain high, collect low" in ImagingTopoCluster
+# (patch space/notes/patches/B11_chain_high_collect_low.patch, build label B11). On the current best
+# L01 (P1b clustering + its refit calibration + PR 3114's photon box): subcells chain at 480 keV
+# (E02); afterwards the subcells in [315, 480) keV, the unseeded subcells and the groups below the
+# survival floors join the surviving cluster they neighbour (no merges between surviving clusters).
+# Selector: 415 vertex_fixed_tagrefit vs L01 per D4 momentum (D-user-31, D-default-38).
+name: B11_chain_high_collect_low
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: B11
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterHitEdep: 0.00048
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCollectEdep: 0.000315
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "1.765,0.919"
+  reco:ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "2.221,0.897"
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
+output_collections: [".*"]
+notes: "B11: chain at 480 keV, collect [315, 480) keV, unseeded subcells and sub-floor groups into the neighbouring cluster; on L01"

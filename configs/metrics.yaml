@@ -56,7 +56,7 @@ windows:
   lambda_mass_gev: 1.115683
   lambda_mass_half_window_gev: 0.03   # fixed for the program (not "3σ of R0": R0 may have no peak); the Rt ceiling uses the same
   high_energy_cluster_gev: 50.0       # G2
-  low_energy_cluster_gev: 1.0         # G3
+  low_energy_cluster_gev: 5.0         # G3; calibrated cluster energy: minClusterEdep 50 MeV deposit ÷ sampFrac 0.0273 = 1.83 GeV is the floor, so 1 GeV counted nothing
   phi_edge_deg: 5.0                   # G1: |phi| within this of 180
 
 fits:
@@ -67,19 +67,24 @@ fits:
 # Significance of the paired test and the guard limits (zdc-setup.md, Noise and significance)
 significance_sigma: 3.0
 limits:
-  S2_scale_abs_dev_max: 0.05          # |μ/E − 1| per momentum, photon gun            (agent default; user may change)
-  S3_raw_sum_rel_change_max: 0.05     # relative change of Σ E_cluster / E_true vs the current best   (agent default)
+  S2_scale_abs_dev_max: 0.05          # |μ/E − 1| − 2σ per D2 energy, μ/E from the clustering's own refit (D-user-13, D-user-17)
+  gamma_raw_sum_rel_drop_max: 0.05    # D-user-16 (Q9 A): one-sided, D2 photons' energy in surviving clusters / E_true vs the current best
+  S3_raw_sum_rel_change_max: 0.05     # relative DROP of Σ E_cluster / E_true vs the current best, per D3 momentum (D-user-12, Q8 answer A)
+  S3_raw_sum_direction: drop_only     # D-user-12: an increase passes when σ/mean of the raw sum does not worsen significantly
+  S3_raw_sum_guard_min_momentum_gev: 50   # D-user-26 (Q11 A): the drop limit is a guard at D3 momenta ≥ 50 GeV; 20 GeV is reported
+                                      #   (R0's own raw sum at 20 GeV is 0.087; the D4 neutrons carry ≥ 75 GeV)
+                                      #   (paired bootstrap, 3σ) and S3 clusters per neutron stays inside its limit
   S3_clusters_per_neutron_max_increase: 0.5
   S3_gamma_tagged_fraction_max: 0.10  # energy fraction tagged γ in neutron events
   S4c_gammas_per_event_max: 4.0       # mean γ-tagged neutrals per Λ event
-  G1_phi_at_180_frac_max: null        # user sets at the Phase 0 checkpoint (R0 value + margin proposed by the agent)
-  G1_column_frac_max: null            # fraction of single-(x,y) clusters
-  G2_highE_frac_rel_change_max: null
-  G3_lowE_per_event_max: null
+  G1_phi_at_180_frac_max: 0.15        # D-default-19 (Q4): R0 0.068 (NC) / 0.074 (SIDIS) ×2; R1 1.000
+  G1_column_frac_max: 0.05            # D-default-19: fraction of single-(x,y) clusters; R0 0.000, R1 1.000
+  G2_highE_frac_rel_change_max: 0.5   # D-default-19: relative drop of the E > 50 GeV fraction vs R0 (0.612 NC, 0.864 SIDIS); R1 −99 %
+  G3_lowE_per_event_max: 0.5          # D-default-19: clusters below 5 GeV per event; R0 0.006 / 0.010, R1 2.13 / 5.44
 
-# Frozen through Phases 1 to 3 (zdc-setup.md): no experiment config may set these.
+# No experiment config may set these (120_reconstruct.py refuses). D-user-14 (2026-11-05) opened
+# LambdaReconstruction from Phase 2 on: pi0Window, lambdaMassWindow and iterations left this list and are
+# the Λ family's knobs (D-default-25); the scoring window above (`windows`) stays fixed, so S4a_tm cannot be
+# won by widening the reco windows. globalToProtonRotation stays: it is the −25 mrad crossing angle, a fact.
 frozen_parameters:
-  - "ReconstructedLambdas:pi0Window"
-  - "ReconstructedLambdas:lambdaMassWindow"
-  - "ReconstructedLambdas:iterations"
-  - "ReconstructedLambdas:globalToProtonRotation"
+  - "reco:ReconstructedLambdas:globalToProtonRotation"

@@ -1,0 +1,11 @@
+# Determinism repeat of B9e_neutron_leader (loop v3 code tier: the determinism check after every rebuild): the same build, parameters and inputs, one D4 file and one D5 chunk, compared with 130 (full and --zdc) against B9e_neutron_leader's own outputs.
+name: B9e_neutron_leader_repeat
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: B9e
+parameters:
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+nthreads: 1
+datasets: [D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
+output_collections: [".*"]
+notes: determinism repeat of the B9e build (R3 + the neutron at its reference point)

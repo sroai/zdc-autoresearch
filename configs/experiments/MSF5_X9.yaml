@@ -1,0 +1,12 @@
+# Phase 5 base row (loop v5, Step 0 item 3): X9, the final Phase 4 row, on the MSF search and held-out halves with the
+# MSF template (no MCParticles; 210 reads truth from the simulation files). Every Phase 5 try is compared with it
+# until one is accepted.
+name: MSF5_X9
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X9
+source_commit: f822e4d0
+parameters: {}
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130, D6h_9x275, D6h_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X9 (EICrecon a15b0db6, install eicrecon-X9) — the Phase 5 base row"

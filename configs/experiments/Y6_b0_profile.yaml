@@ -1,0 +1,19 @@
+# Phase 5 try Y6 (loop v5): the B0 island split shares each hit between the local maxima by exp(−d / s) × peak energy, d in
+# crystal units; Y4 set s = 1.0. With both photons in B0, Y5 still misses a photon for 198 of 264 Λ (9x275 search half) and
+# 151 of 264 (9x130): the photon's best B0 cluster is shared below purity 0.8 (50 % / 55 %) or merged with the other photon
+# (48 % / 41 %); the 1 GeV candidate threshold costs 2–4 %. s = 0.5 keeps a hit near one maximum with that maximum.
+# Parameters on the Y5 install (a15b0db6 + Y2 + Y5 patches) with Y4's B0 splitting, the profile scale changed.
+# hypothesis: γγ-in-B0 found 9x275 33 → ~50, 9x130 57 → ~80; γ B0 + γ ZDC ±5 (its B0 photon is mostly alone); N_found
+# 1164 → ~1180, 147 → ~170; purity flat.
+name: Y6_b0_profile
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y5
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.5
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "a15b0db6 + Y2 + Y5 patches (install Y5) + B0 splitting with transverseEnergyProfileScale 0.5"

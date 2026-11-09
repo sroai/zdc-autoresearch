@@ -1,0 +1,17 @@
+# Phase 6 Step 0 item 3 (loop v6): the base row — Y9 (the final Phase 5 row: a15b0db6 + Y2 + Y5 + Y9 patches, install Y9,
+# its four B0 / photon-law parameters) with the Phase 6 template (D-default-47), on the search halves D6s and the held-out
+# halves D6h. The template adds collections only, so the row must reproduce Y9 Λ by Λ. Every Phase 6 try's F2b runs
+# against its raw hits; the offline scope study (Step 0 item 1) reads its crystal and Hcal rec hits.
+name: MSF6_Y9
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y9
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130, D6h_9x275, D6h_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Y9 (a15b0db6 + Y2 + Y5 + Y9 patches, install eicrecon-Y9) with the Phase 6 template — the Phase 6 base row"

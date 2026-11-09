@@ -1,0 +1,16 @@
+# Phase 4 X6: the ZDC position of the Λ chain at the front face (parameter try on X5b, commit 57b698c4). LambdaReconstruction
+# and the neutrals read HcalFarForwardZDC_SiPMonTile_r_pos, the ZDC centre (front + 916 mm): the vertex search and the
+# depth prior then run up to the centre, inside the detector. Here both read ..._r_pos_front_face (35.8 m); the photon
+# depth limit keeps 225 mm past the face (gammaZMaxOffset 225 relative to the face). Judged against X5.
+name: X6_zdc_face
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X5b
+source_commit: 57b698c4
+parameters:
+  reco:ReconstructedLambdas:offsetPositionName: HcalFarForwardZDC_SiPMonTile_r_pos_front_face
+  reco:ReconstructedFarForwardNeutrals:offsetPositionName: HcalFarForwardZDC_SiPMonTile_r_pos_front_face
+  reco:ReconstructedFarForwardNeutrals:gammaZMaxOffset: 225
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X6 — vertex range and depth prior end at the ZDC front face (parameters on X5b)"

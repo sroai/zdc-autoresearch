@@ -1,0 +1,12 @@
+# Phase 4 Step 0 item 2, second damaged control for F3: X1 plus gate-controls/phase4/ctlF3b.patch (install
+# eicrecon-ctlF3b, never committed): every Λ's energy set to sqrt(p² + m_Λ²) and its mass to m_Λ (F3d, F3e), and every
+# other candidate gets a fourth daughter (F3b). One D4 file (275 GeV) in gate-controls/phase4/ctlF3b. The static F1
+# checks of this row read the pin (no commit holds the damage).
+name: CTL_F3b
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: ctlF3b
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: F3 control 2 (Λ-mass rescale of the energy, a fourth daughter on every other candidate)

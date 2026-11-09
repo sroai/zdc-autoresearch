@@ -1,0 +1,9 @@
+# Phase 3 Step 0 item 3: T and output size of R0 with the full output collections, one D4 file
+# (175 GeV) and one D5 chunk per sample, run side by side with its counterpart on the same load.
+name: T_R0_full
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: timing and equivalence check of the restricted template (not an experiment)

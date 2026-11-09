@@ -1,0 +1,9 @@
+# Phase 5 Step 0 item 4 (loop v5): R0 (the pin) on D6s_9x275 with the MSF template, the F2b reference of the base row
+# MSF5_X9 (460 --reference-dir) and R0's MSF yield for the report. Never a selector.
+name: CTL5_R0_msf
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters: {}
+nthreads: 1
+datasets: [D6s_9x275]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "R0 (pin e5e2a60c) on the 9x275 search half, MSF template"

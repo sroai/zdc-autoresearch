@@ -1,0 +1,10 @@
+# Phase 4 Step 0 item 2, damaged control for F2: the ZDC Hcal digitization pedestal width 2 -> 8 ADC (threshold is unused by this readout)
+# (a parameter on the digitization factory), the pin's install, one D4 file (275 GeV) in gate-controls/phase4/ctlF2.
+name: CTL_F2_digi
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  ZDC:HcalFarForwardZDCRawHits:pedestalSigma: 8
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: F2 control (digitization pedestal width)

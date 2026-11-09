@@ -1,0 +1,14 @@
+# Reference R2 (user, chat, 2026-11-05, D-user-15): the pin plus PR eic/EICrecon#3114
+# (Baptiste Fraïsse, "Fix: ZDC neutron-gamma discrimination parameters", head fbf662cd):
+# gammaMaxLength 100 → 110 mm, gammaMaxWidth 12 → 22 mm in FarForwardNeutralsReconstruction.
+# The PR edits the config defaults and reco.cc; both are JANA parameters at the pin, so R2 is
+# parameter-tier on the stock build. Clustering is R0's: S0 is identical to R0 by construction.
+name: R2_pr3114
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0, D6a_local, D6a_9x275]
+output_collections: [".*"]
+notes: PR 3114 on stock clustering; what the n/γ cut box alone does

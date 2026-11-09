@@ -1,0 +1,13 @@
+# Template of a Phase 3 parameter experiment (loop v3, Step 0 item 3; setup file, Budgets).
+# Copy to configs/experiments/E<N>_<name>.yaml, set name, parameters and the hypothesis in the ledger.
+# The output keeps only what the scoreboard reads: the truth record, the ZDC collections (hits,
+# clusters, associations), the neutrals of the one neutrals factory and the Λ outputs. Every other
+# collection is static under a ZDC parameter change (G4 static, loop rule 4), and skipping it lets
+# EICrecon skip the factories behind it. Code experiments and checkpoints use output_collections [".*"].
+name: E00_template
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters: {}                     # e.g. ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.005
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: <one line: what changes and why>

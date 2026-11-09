@@ -1,0 +1,13 @@
+# Phase 4 X7 scan (never scored as a try): photon-core split, seeds ≥ 10 MeV in layers ≤ 8, cores 50 mm apart,
+# deeper maxima one shared region; build scanD = X5b (57b698c4) + the core-split knob (off by default). Slim template.
+name: SCAN_K2
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: scanD
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitSeedEdep: 0.01
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitMaxLayer: 8
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitMinDistXY: 50
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "X7 scan K2: core split seed 10 MeV, layers ≤ 8, 50 mm"

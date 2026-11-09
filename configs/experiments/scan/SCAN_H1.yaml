@@ -1,0 +1,10 @@
+# Phase 4 scan on X8 (never scored as a try): coreSplitSeedEdep 0.003; build X8 (26bd6925). Slim template.
+name: SCAN_H1
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X8
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitSeedEdep: 0.003
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "scan H1 on X8"

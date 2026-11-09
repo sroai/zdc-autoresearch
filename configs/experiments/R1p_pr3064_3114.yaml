@@ -1,0 +1,14 @@
+# Reference R1p (loop v3, Phase 3 Step 0 item 7; setup file, References): the author's package,
+# R1 (PR 3064's clustering and calibration, build label R1) + PR 3114's photon box as merged on main
+# (gammaMaxLength 110, gammaMaxWidth 22 mm; R1 alone carries 150 / 12). Parameter tier on the R1
+# build, restricted output collections (the template), D4 and D6a.
+name: R1p_pr3064_3114
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: R1
+parameters:
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+nthreads: 1
+datasets: [D4_lambda, D6a_local, D6a_9x275]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: PR 3064 with the box it now has to live with; owed to a fair review of 3064

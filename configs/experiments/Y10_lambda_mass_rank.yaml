@@ -1,0 +1,21 @@
+# Phase 5 try Y10 (loop v5): parked Y3, restacked on the current best Y9. LambdaReconstruction's final choice across the
+# neutrals collections ranks triplets by ((m_γγ − m_π⁰) / (0.1 m_π⁰))² + ((m_Λ,rec − m_Λ) / (w m_Λ))²; stock w = 0.1 (112 MeV).
+# w = 0.036 (40 MeV, the ZDC pairing's σ_Λ). The mass ranks discrete choices only (F3). Parameter on the Y9 install with all
+# of Y8's / Y9's parameters carried.
+# hypothesis: after Y5 and Y9 another triplet wins for only 4 + 11 Λ (9x275 mixed, γγ in B0) and 1 + 6 (9x130): little left to
+# win; a tighter Λ term also pulls fake combinations into the window. Predicted N_found 1267 → ~1272, 219 → ~222; N_window up,
+# purity down < 1 point.
+name: Y10_lambda_mass_rank
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Y9
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+  reco:ReconstructedLambdas:lambdaMassWindow: 0.036
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "Y9 (install Y9 + Y8 parameters) + reco:ReconstructedLambdas:lambdaMassWindow 0.036"

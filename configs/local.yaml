@@ -10,7 +10,8 @@
 image: eicweb/eic_xl:26.11.0-stable      # pinned in zdc-setup.md; digest recorded there at Step 0
 runtime: docker                           # docker | apptainer (the farm profile uses apptainer)
 repo_mount: /work                         # the repo inside the container
-data_mount: /data                         # {data} inside the container (same path as the host)
+data_mount: /data/zdc-autoresearch       # {data} inside the container: the host path, so every path is valid on both sides
+msf_local_root: /data/meson-structure-2026-07   # mounted read-only at the same path (D6a inputs and the campaign's reco files)
 
 # ---- where bulky things go (NOT the git repo) ---------------------------------
 data_root: /data/zdc-autoresearch

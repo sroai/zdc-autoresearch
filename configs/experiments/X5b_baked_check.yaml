@@ -1,0 +1,10 @@
+# Phase 4: X4/X5 (parameter tries) baked into code; build X5b. Equivalence check against X5.
+name: X5b_baked_check
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: X5b
+source_commit: 57b698c4
+parameters: {}
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", "HcalFarForwardZDCRawHits", "HcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "equivalence check: X5 baked into code (no parameters) must reproduce X5 on D4 175 GeV"

@@ -1,0 +1,12 @@
+# Phase 4 Step 0 item 2, damaged control for F1 (parameters and run time): Rt's install, with the scored
+# ReconstructedLambdas rewired by a JANA InputTags parameter to Rt's truth-cluster neutrals.
+name: CTL_F1_rewire
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: truthchain
+source_commit: fdaae7a6
+parameters:
+  reco:ReconstructedLambdas:InputTags: "ReconstructedHcalFarForwardZDCNeutralsTruth,ReconstructedB0EcalNeutralsTruth,ReconstructedEcalEndcapPNeutralsTruth,ReconstructedLFHCALNeutralsTruth"
+nthreads: 1
+datasets: [D4_lambda]
+output_collections: ["MCParticles", "EventHeader", ".*FarForwardZDC.*", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: F1 control (InputTags rewiring, janadot)

@@ -1,0 +1,10 @@
+# Phase 2 E05_seed2 (2026-11-05): survival-threshold family, second point after E03: seed minClusterCenterEdep 5 -> 2 MeV on the current best
+name: E05_seed2
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+parameters:
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.002
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 2
+nthreads: 1
+datasets: [D1_pi0, D2_photon, D3_neutron, D4_lambda, D5_dis_minq2_100, D5_dis_minq2_0]
+output_collections: [".*"]
+notes: "survival-threshold family, second point after E03: seed minClusterCenterEdep 5 -> 2 MeV on the current best"
