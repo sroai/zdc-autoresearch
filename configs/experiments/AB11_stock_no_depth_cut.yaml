@@ -1,0 +1,37 @@
+# Leave-one-out on the stock-clustering base (2026-11-09, D-user-46, appended after AB9): AB9_stock_clustering (stock ZDC
+# Hcal clustering, PR 3114's box, R0 laws, the rest of Z8; 954 found = 747 + 207, purity 49.3 %; 9x275 regimes all-ZDC
+# 302, B0+ZDC 326, B0+B0 119) with one more change off, scored against AB9 by 210 + 463 (b = found only with the change).
+# AB11_stock_no_depth_cut: X5's photon depth limit off (stock 400 mm past the ZDC centre). Prediction: few deep stock clusters pass the box; ~910.
+name: AB11_stock_no_depth_cut
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: AB9
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+  reco:ReconstructedFarForwardNeutrals:crystalClusterEmin: 0.3
+  reco:ReconstructedFarForwardNeutrals:crystalColumnRadius: 60
+  reco:ReconstructedFarForwardNeutrals:crystalGammaLaw: "1.9092,44.768,-0.8984"
+  reco:ReconstructedFarForwardNeutrals:crystalColumnNeutronScale: 36.63
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingLambdaSigma: 0.03
+  reco:ReconstructedFarForwardNeutrals:crystalAltColumnOut: 1
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingIsolationWeight: 2.0
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingIsolationLength: 42.5
+  reco:ReconstructedFarForwardNeutrals:hcalAxisAlternative: 1
+  reco:ReconstructedFarForwardNeutrals:hcalAxisRadius: 45
+  reco:ReconstructedFarForwardNeutrals:hcalAxisLaw: "2.5938,45.8981,-1.5994"
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitSeedEdep: 0.0
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterEdep: 0.05
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.025
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 10
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "1.7582,0.9198"
+  reco:ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "2.0790,0.9109"
+  reco:ReconstructedFarForwardNeutrals:gammaZMaxOffset: 400.0
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "leave-one-out on AB9 (stock clustering): AB11_stock_no_depth_cut"

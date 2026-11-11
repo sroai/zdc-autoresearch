@@ -170,6 +170,40 @@ Of the photons inside the neutron's cluster at 9x275, 53 have a clean crystal cl
 have none. Late decays cause it: all-ZDC Λ decaying 30–40 m from the IP (the ZDC at 36 m) are found at 6 %, 25–30 m at
 43 %, before 20 m at 61–63 %.
 
+## The candidates in the window that are not the true Λ (Z8, `483`, after the close)
+
+(written 2026-11-09 after the close, at the user's question about the unmatched candidates)
+
+Purity 31 % means that 69 % of the events with a candidate in the ±30 MeV window hold something other than the true
+Λ → nπ⁰. `483` traces every such candidate to its true event and the particles that made its three clusters
+(`space/perf/window-candidates-Z8_hcal_axis_law-D6s_*.json`). At 9x275 (search half, 20 000 events): 5437 in the window,
+1688 the true Λ, 3749 not. They split into two halves of about the same size.
+
+- **No Λ → nπ⁰ in the event: 1904 (51 % of the unmatched).** A charged or interacting hadron showers in the ZDC; the
+  chain calls the shower's core the neutron and two of its fragments the photons.
+  - Λ → pπ⁻: 770. The proton reaches the ZDC (the "neutron" is the proton in 757).
+  - The Λ interacted in material on its way: 735. Its debris showers in the ZDC and the B0.
+  - The Λ reached the ZDC undecayed: 364. The Λ itself showers there.
+  - Λ → nπ⁰ with a Dalitz π⁰: 35.
+- **A true Λ → nπ⁰ whose photons cannot all be used: 1845 (49 %).** The chain puts a neutron-shower fragment in place of
+  the missing photon.
+  - A photon (or both) reaches no calorimeter: 736.
+  - Both photons in the acceptance, but one has no clean cluster (inside the neutron's cluster, or shared): 866 + 18
+    other-triplet choices + 10 without a neutron neutral. These are the losses of the gap section above.
+  - The neutron misses the ZDC: 215. A photon's cluster plays the neutron.
+- **Why they sit in the window and not around it:** the pairing picks, among all combinations of an event's clusters,
+  the one closest to the π⁰ and Λ masses. With several fragments per hadron shower, a combination near m_Λ is nearly
+  always there, so the background is pulled into the window: 5437 of the 8279 events with a candidate have it in the
+  window.
+- At 9x130 (859 in the window, 258 true): no Λ → nπ⁰ 155 (Λ → pπ⁻ 89, material 50, undecayed 11, Dalitz 5); a true
+  Λ → nπ⁰ with an unusable photon 446 (photon in no calorimeter 266, neutron missed the ZDC 75, no clean photon cluster
+  93 + 12).
+
+What this means: the ZDC cannot tell a proton or a Λ shower from a neutron shower, and a photon from a hadronic fragment
+only partly (the tag, Z7's isolation). Raising the purity needs variables that the mass choice does not use: the EM
+character of the photons (crystal fraction, depth), a charged-hadron signature, the decay vertex. That is a phase of its
+own; Phase 7 (upstream) does not change it.
+
 ## Remaining losses at 9x275 (Z5, emulated, run 1)
 
 `477 --alt --why` on Z5's settings: among the all-ZDC Λ missed although a photon has a pure crystal cluster (≥ 0.3 GeV),

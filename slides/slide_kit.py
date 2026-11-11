@@ -1,4 +1,4 @@
-"""slide_kit.py — shared python-pptx helpers (the slides skill's kit, verbatim).
+"""slide_kit.py — shared python-pptx helpers (the slides skill's kit, plus `hbars`).
 Palette/type constants are defined by the deck script that imports this."""
 import os, shutil, subprocess, sys, tempfile
 

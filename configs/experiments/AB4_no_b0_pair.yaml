@@ -1,0 +1,29 @@
+# Leave-one-out ranking on Z8 (2026-11-09, after the Phase 6 close; the user's "Yes. Run."): Z8_hcal_axis_law with one
+# change switched off, on the MSF search halves D6s, scored against Z8 by 210 + 463 (b = found only with the change,
+# c = found only without it). Reported only; no selection. Z8 found 1688 + 258 = 1946, purity 31.0 / 30.0 %.
+# AB4_no_b0_pair: Y9's external-pair hypotheses off (both photons in B0). Prediction: Y9 gave +40 on Y8; pooled ~1905.
+name: AB4_no_b0_pair
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: Z8
+source_commit: a15b0db6
+parameters:
+  B0ECAL:B0ECalIslandProtoClusters:splitCluster: 1
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileMetric: dimScaledLocalDistXY
+  B0ECAL:B0ECalIslandProtoClusters:transverseEnergyProfileScale: 0.3
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffB0Ecal: "1.0888,1.0058"
+  reco:ReconstructedFarForwardNeutrals:crystalClusterEmin: 0.3
+  reco:ReconstructedFarForwardNeutrals:crystalColumnRadius: 60
+  reco:ReconstructedFarForwardNeutrals:crystalGammaLaw: "1.9092,44.768,-0.8984"
+  reco:ReconstructedFarForwardNeutrals:crystalColumnNeutronScale: 36.63
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingLambdaSigma: 0.03
+  reco:ReconstructedFarForwardNeutrals:crystalAltColumnOut: 1
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingIsolationWeight: 2.0
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingIsolationLength: 42.5
+  reco:ReconstructedFarForwardNeutrals:hcalAxisAlternative: 1
+  reco:ReconstructedFarForwardNeutrals:hcalAxisRadius: 45
+  reco:ReconstructedFarForwardNeutrals:hcalAxisLaw: "2.5938,45.8981,-1.5994"
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingExternalPair: 0
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "leave-one-out on Z8: AB4_no_b0_pair"

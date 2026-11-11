@@ -14,8 +14,8 @@ the user's start line, not before.
 **Goal:** turn the EICrecon changes of Phases 4–6 (the Phase 6 working tree, final row Z8) into a short series of
 pull-request units for eic/EICrecon. Each unit is proven on four counts before the next one starts:
 
-1. **It is the program's code.** The units, applied in order to the base, rebuild the Phase 6 tree; the code cleanup a
-   review needs changes no output (the full series reproduces Z8 Λ by Λ).
+1. **It is the program's code.** The raw units (the Phase 6 hunks, before any cleanup), applied in order, rebuild the Phase 6
+   tree byte for byte; the cleanup a review needs changes no output of any unit; the full cleaned series reproduces Z8 Λ by Λ.
 2. **Other calorimetry is not affected.** Every collection the unit does not declare stays byte-identical to the previous
    unit on the DIS guard samples and the guns (`130`'s leaf compare), and the capybara view of the undeclared collections
    prints no leaf (`443`'s method). This is G4 of Phase 3, per unit.
@@ -50,16 +50,48 @@ working tree (the Phase 6 state, the user's review queue) stay untouched. `102_b
 
 ### The units (proposed; Step 0 item 2 fixes the split)
 
-| unit | content | from | files | default | declared: the collections it may change | benchmarks |
-|---|---|---|---|---|---|---|
-| P1 | photon depth limit measured from the ZDC face (`gammaZMaxOffset` −691.4 mm; the stock 400 mm is added to the ZDC centre, lands 1316 mm past the face and cuts nothing; finding F7) | X5 | `reco.cc` | on | `ReconstructedHcalFarForwardZDCNeutrals`, `ReconstructedLambda*` | zdc_photon, zdc_pi0, zdc_lambda |
-| P2 | ImagingTopoCluster photon-core split | U3 (X7, X8) | `ImagingTopoCluster.{cc,h}`, Config, factory | **off** | none: every collection identical, BEMC and FHCAL included | barrel_ecal, lfhcal: identical outputs, said so |
-| P3 | LambdaReconstruction: stable vertex with each daughter's lever arm, neutron at its reference point (findings F9, F10) | U1 + Y2 | `LambdaReconstruction.cc` | on | `ReconstructedLambda*` | zdc_lambda, zdc_sigma |
-| P4 | ZDC Λ pairing in FarForwardNeutralsReconstruction: the photon pair chosen by the Λ hypothesis, with a B0 photon (Y5) and with two B0 photons (Y9), photon depth and isolation terms | U2 + Y5 + Y9 + Z7 (+ Z4's width) | neutrals `.cc`, `.h`, Config, factory | **off** | none | — |
-| P5 | crystal-seeded photons and their energy laws (crystal law, crystal-law alternative, axis law); three new factory inputs | Z1b, Z5, Z6, Z8 (neutrals part) | neutrals files, `reco.cc` inputs | **off** | none | — |
-| P6 | LYSO crystal section clustered at the crystal scale (3.5 cm neighbourhood, split at local maxima, Molière-radius sharing) | Z1b (`ZDC.cc` part) | `ZDC.cc` | on | `EcalFarForwardZDC*` clusters, proto-clusters and associations | zdc_lyso (it reads these clusters), zdc_photon |
-| P7 | B0 ECal: islands split at local maxima, energy shared at 0.3 crystal; the B0 photon law refit on the B0 photon gun | Y4, Y6, Y8, Y7 (Phase 5 parameters) | `B0ECAL.cc`, `reco.cc` | on | `B0ECal*` clusters, proto-clusters and associations, `ReconstructedB0EcalNeutrals`, `ReconstructedLambda*` | far_forward_dvcs (it reads `B0ECalClusters`), the B0 photon gun D2b (`467`) |
-| P8 | the ZDC configuration that switches P2, P4, P5 on, with the refit calibrations and Z8's 15 parameters as defaults | U4 + switches + Z8 yaml | `ZDC.cc`, `reco.cc` | on | `HcalFarForwardZDC*` clusters, `Reconstructed*Neutrals`, `ReconstructedLambda*` | zdc_pi0, zdc_photon, zdc_neutron, zdc_lambda, zdc_sigma |
+Each unit lists: what it does; where it comes from (the program's tries); the files; its default; the collections it
+may change (its declared list); the benchmarks that show the change.
+
+- **P1 — the photon depth limit measured from the ZDC face** (finding F7)
+  - what: `gammaZMaxOffset` −691.4 mm. The stock 400 mm is added to the ZDC centre, lands 1316 mm past the face and cuts
+    nothing.
+  - from: X5. Files: `reco.cc`. Default: on.
+  - may change: `ReconstructedHcalFarForwardZDCNeutrals`, `ReconstructedLambda*`.
+  - benchmarks: zdc_photon, zdc_pi0, zdc_lambda.
+- **P2 — ImagingTopoCluster photon-core split**
+  - from: U3 (X7, X8). Files: `ImagingTopoCluster.{cc,h}`, its Config and factory. Default: **off**.
+  - may change: nothing. Every collection stays identical, BEMC and FHCAL included (they use this algorithm too).
+  - benchmarks: barrel_ecal, lfhcal — identical outputs, said so in the draft.
+- **P3 — LambdaReconstruction: a stable vertex with each daughter's lever arm, the neutron at its reference point**
+  (findings F9, F10)
+  - from: U1 + Y2. Files: `LambdaReconstruction.cc`. Default: on.
+  - may change: `ReconstructedLambda*`.
+  - benchmarks: zdc_lambda, zdc_sigma.
+- **P4 — the ZDC Λ pairing in FarForwardNeutralsReconstruction**
+  - what: the photon pair chosen by the Λ hypothesis, also with one B0 photon (Y5) and with two B0 photons (Y9); the
+    photon depth and isolation terms.
+  - from: U2 + Y5 + Y9 + Z7 (+ Z4's mass width). Files: the neutrals `.cc`, `.h`, Config, factory. Default: **off**.
+  - may change: nothing.
+- **P5 — crystal-seeded photons and their energy laws** (crystal law, crystal-law alternative, axis law)
+  - what: also three new inputs of the neutrals factory in `reco.cc`.
+  - from: Z1b, Z5, Z6, Z8 (their neutrals part). Files: the neutrals files, `reco.cc`. Default: **off**.
+  - may change: nothing.
+- **P6 — the LYSO crystal section clustered at the crystal scale**
+  - what: 3.5 cm neighbourhood, split at local maxima, energy shared on the Molière radius.
+  - from: Z1b (its `ZDC.cc` part). Files: `ZDC.cc`. Default: on.
+  - may change: the `EcalFarForwardZDC*` clusters, proto-clusters and associations.
+  - benchmarks: zdc_lyso (it reads these clusters), zdc_photon.
+- **P7 — B0 ECal: islands split at local maxima, energy shared at 0.3 crystal; the B0 photon law refit on the B0 photon gun**
+  - from: Y4, Y6, Y8, Y7 (Phase 5's run-time parameters). Files: `B0ECAL.cc`, `reco.cc`. Default: on.
+  - may change: the `B0ECal*` clusters, proto-clusters and associations, `ReconstructedB0EcalNeutrals`,
+    `ReconstructedLambda*`.
+  - benchmarks: far_forward_dvcs (it reads `B0ECalClusters`), the B0 photon gun D2b (`467`).
+- **P8 — the ZDC configuration that switches P2, P4 and P5 on**
+  - what: the refit calibrations and Z8's 15 run-time parameters become defaults.
+  - from: U4 + the switches + the Z8 yaml. Files: `ZDC.cc`, `reco.cc`. Default: on.
+  - may change: the `HcalFarForwardZDC*` clusters, `Reconstructed*Neutrals`, `ReconstructedLambda*`.
+  - benchmarks: zdc_pi0, zdc_photon, zdc_neutron, zdc_lambda, zdc_sigma.
 
 P7 is the one unit that moves another calorimeter on purpose: the B0 ECal clusters change for every user of them. Its
 evidence goes to the user before its draft is written (a FIX/ASK stop, not a verdict of the agent). P2, P4 and P5 are
@@ -67,21 +99,37 @@ default-off, so with them alone every collection stays identical. P8 must reprod
 D6h, Λ by Λ (`210`), D4 8.42 % mean.
 
 Dependencies: P3 on PR 3063; P6 and P8 on PR 3064's ZDC configuration; P5 on P4; P8 on P2, P4, P5. Step 0 may merge or
-split units when the code says so (for example a shared vertex helper for P3 and P4), and records the final table in
+split units when the code says so (for example a shared vertex helper for P3 and P4), and records the final list in
 `configs/upstream_units.yaml` (frozen after Step 0).
 
-### The check ladder (every unit, in this order; each line is a decisive outcome)
+### The check ladder (every unit, in this order; each item is a decisive outcome)
 
-| # | check | PASS when |
-|---|---|---|
-| 1 | **split** | the unit's patch applies to the previous unit's tree; after P8 the tree equals the Phase 6 tree plus the defaults (Step 0 item 2) |
-| 2 | **build and style** | incremental build in the pinned image; `clang-format` (EICrecon's `.clang-format`) and `pre-commit` clean on the changed files; units on every new config value; no magic numbers; a Catch2 test for new algorithm code (core split, pairing, crystal photons) passes; `465` patch scan PASS (no truth, no dataset-keyed constant) |
-| 3 | **cleanup changes nothing** | the cleaned unit with the Phase 6 run-time parameters gives the same outputs as the Phase 6 install it came from (`130` on D6s files 0001–0004, every collection) |
-| 4 | **switch off** | a default-off unit (P2, P4, P5): every collection identical to the previous unit on the identity set |
-| 5 | **other calorimetry** | on the identity set: every collection outside the unit's declared list identical to the previous unit (`483`, `130`'s leaf compare with the unit's list) and the capybara view of the undeclared collections prints no leaf; a FAIL stops the unit and goes to the user (ASK): a declared list never widens without the user's word |
-| 6 | **benchmarks** | the declared collections on the unit's benchmarks, before and after, plots as PNG under `space/plots/phase7/<unit>/` and the benchmarks' own numbers in a table; the capybara view of the declared collections beside it |
-| 7 | **physics and cost** | the unit's effect on N_found (D6s) and on D4 S4a_tm where it changes the Λ chain; wall seconds per 1000 events on D4 275 GeV and one D5 chunk; > 10 % slower goes in the draft, 2× is a question |
-| 8 | **draft** | `space/reports/phase7_upstream/<unit>.md`: title, why, what changes, how to switch it on, dependencies, the evidence table, the checklist; patch `space/notes/patches/phase7/<unit>.patch` |
+1. **Split.** The raw unit's patch applies to the previous unit's tree (Step 0 item 2 proved that the raw P1–P8 rebuild
+   the Phase 6 tree).
+2. **Build and style.**
+   - an incremental build in the pinned image;
+   - `clang-format` (EICrecon's `.clang-format`) and `pre-commit` clean on the changed files;
+   - units on every new config value, no magic numbers;
+   - a Catch2 test for new algorithm code (core split, pairing, crystal photons) passes;
+   - `465` patch scan PASS (no truth, no dataset-keyed constant).
+3. **Cleanup changes nothing.** The raw unit and its cleaned version, each built on the previous cleaned unit, give
+   identical outputs on the identity set (`130`, every collection, with the unit's switches on through run-time
+   parameters). The end-to-end check is P8's: the cleaned series reproduces Z8.
+4. **Switch off.** A default-off unit (P2, P4, P5): every collection identical to the previous unit on the identity set.
+5. **Other calorimetry.** On the identity set:
+   - every collection outside the unit's declared list is identical to the previous unit (`484`, `130`'s leaf compare
+     with the unit's list);
+   - the capybara view of the undeclared collections prints no leaf;
+   - a FAIL stops the unit and goes to the user (ASK): a declared list never widens without the user's word.
+6. **Benchmarks.** The declared collections on the unit's benchmarks, before and after: plots as PNG under
+   `space/plots/phase7/<unit>/`, the benchmarks' own numbers as a list, the capybara view of the declared collections
+   beside them.
+7. **Physics and cost.**
+   - the unit's effect on N_found (D6s) and on D4 S4a_tm where it changes the Λ chain;
+   - wall seconds per 1000 events on D4 275 GeV and on one D5 chunk; more than 10 % slower goes in the draft, 2× is a
+     question.
+8. **Draft.** `space/reports/phase7_upstream/<unit>.md` (title, why, what changes, how to switch it on, dependencies, the
+   evidence, the checklist) and the patch `space/notes/patches/phase7/<unit>.patch`.
 
 **The identity set** (full collections, single-threaded, `-Pjana:nthreads=1`): D5_dis_minq2_100 and D5_dis_minq2_0, chunks
 000 and 001 each (the CI's DIS samples; every calorimeter of the detector); one file per gun: D1 100 GeV, D2 50 GeV, D3
@@ -90,15 +138,33 @@ passed check 5 against it; then listed in `space/notes/cleanup-pending.sh`.
 
 ### Step 0 (before the first unit)
 
-| # | item | decisive outcome |
-|---|---|---|
-| 1 | **The base** (Q23): heads of main, PR 3064 and PR 3063 read with `gh` (read-only); their diffs against the program's copies; the base tarball under `{data}/upstream/`; built in the pinned image (`102 --source`) | the base builds; the PR copies' differences listed in the report. A base that needs a newer image is a question, never a silent image change |
-| 2 | **The split**: the Phase 6 tree cut into P1–P8 by file and by hunk | the units applied in order to a15b0db6's tree give `phase6_working_tree.patch`'s tree byte for byte (as Phase 4 proved U1–U4); then the same units applied to the base, with every conflict listed |
-| 3 | **References at the base**: R0b (the base, stock) on the identity set, twice | the two runs identical (`130`, every collection): the ruler is deterministic at the base. At the pin, R0 reproduces its recorded scoreboard row on D5 (rule 2) |
-| 4 | **`483` written and proven** (identity with a declared list + capybara of the undeclared and declared collections + summary JSON) | FAIL on a control that changes one BEMC parameter (it must name the `EcalBarrel*` collections), PASS on a control that changes only a declared ZDC collection, FAIL on a run with a missing file |
-| 5 | **Benchmark copies** (Q24): zdc_lyso, zdc_sigma and far_forward_dvcs added to `scripts/700_benchmarks/` with main's collection names, run by `401`; their samples generated with the benchmarks' own generators | each benchmark runs on R0b and on a damaged input and its numbers move; the new datasets in the manifest |
-| 6 | **FROZEN rewrite**: this file, `483`, `configs/upstream_units.yaml`, the benchmark copies | the hook refuses an edit to `483` |
-| 7 | **Report and deck**: `space/reports/phase7_upstream.md`, `slides/phase7/` (a slide per unit: the stack with the unit highlighted, the ladder's results, benchmark plots; a diagram for each code change) | both build |
+1. **The base** (Q23).
+   - Do: read the heads of main, PR 3064 and PR 3063 with `gh` (read-only); diff them against the program's copies; unpack
+     the base tarball under `{data}/upstream/`; build it in the pinned image (`102 --source`).
+   - Decisive: the base builds; the differences of the PRs' heads from the program's copies are listed in the report. A
+     base that needs a newer image is a question, never a silent image change.
+2. **The split.**
+   - Do: cut the Phase 6 tree into raw units P1–P8 by file and by hunk, no cleanup.
+   - Decisive: the raw units applied in order to a15b0db6's tree give `phase6_working_tree.patch`'s tree byte for byte (as
+     Phase 4 proved U1–U4); then the same units applied to the base, with every conflict listed.
+3. **References at the base.**
+   - Do: R0b (the base, stock) on the identity set, twice.
+   - Decisive: the two runs identical (`130`, every collection), so the ruler is deterministic at the base. At the pin,
+     R0 reproduces its recorded scoreboard row on D5 (rule 2).
+4. **`484` written and proven** (identity with a declared list, capybara of the undeclared and declared collections, a
+   summary JSON).
+   - Decisive: FAIL on a control that changes one BEMC parameter (it must name the `EcalBarrel*` collections); PASS on a
+     control that changes only a declared ZDC collection; FAIL on a run with a missing file.
+5. **Benchmark copies** (Q24).
+   - Do: add zdc_lyso, zdc_sigma and far_forward_dvcs to `scripts/700_benchmarks/` with main's collection names, run by
+     `401`; generate their samples with the benchmarks' own generators.
+   - Decisive: each benchmark runs on R0b and on a damaged input, and its numbers move; the new datasets are in the
+     manifest.
+6. **FROZEN rewrite**: this file, `484`, `configs/upstream_units.yaml`, the benchmark copies.
+   - Decisive: the hook refuses an edit to `484`.
+7. **Report and deck**: `space/reports/phase7_upstream.md` and `slides/phase7/` (a slide per unit: the stack with the
+   unit highlighted, the ladder's results, benchmark plots; a diagram for each code change).
+   - Decisive: both build.
 
 ### Order of work
 

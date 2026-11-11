@@ -1,0 +1,34 @@
+# Leave-one-out on the cheap set (2026-11-10, D-user-46, after the stock-base batch): AB10_stock_clustering_no_pairing
+# (stock ZDC clustering + PR 3114 box + R0 laws, pairing off: 401 found) with one change switched off, on the MSF search
+# halves D6s, scored against AB10 by 210 + 463 (b = found only with the change, c = only without it). Reported only.
+# AB16_cheap_b0_stock: AB10 with the stock B0 ECal (the four B0 lines dropped): what the Λ vertex, the calibration refit
+# and the rest of the tree give without the B0 change. Prediction: ~180 (AB10's B0+B0 regime 241 → ~20).
+name: AB16_cheap_b0_stock
+eicrecon_ref: e5e2a60c60b6a10a25cbe35497da1d4996a492df
+install_label: AB9
+source_commit: a15b0db6
+parameters:
+  reco:ReconstructedFarForwardNeutrals:crystalClusterEmin: 0.3
+  reco:ReconstructedFarForwardNeutrals:crystalColumnRadius: 60
+  reco:ReconstructedFarForwardNeutrals:crystalGammaLaw: "1.9092,44.768,-0.8984"
+  reco:ReconstructedFarForwardNeutrals:crystalColumnNeutronScale: 36.63
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingLambdaSigma: 0.03
+  reco:ReconstructedFarForwardNeutrals:crystalAltColumnOut: 1
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingIsolationWeight: 2.0
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingIsolationLength: 42.5
+  reco:ReconstructedFarForwardNeutrals:hcalAxisAlternative: 1
+  reco:ReconstructedFarForwardNeutrals:hcalAxisRadius: 45
+  reco:ReconstructedFarForwardNeutrals:hcalAxisLaw: "2.5938,45.8981,-1.5994"
+  ZDC:HcalFarForwardZDCImagingProtoClusters:coreSplitSeedEdep: 0.0
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterEdep: 0.05
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterCenterEdep: 0.025
+  ZDC:HcalFarForwardZDCImagingProtoClusters:minClusterNhits: 10
+  reco:ReconstructedFarForwardNeutrals:gammaMaxLength: 110
+  reco:ReconstructedFarForwardNeutrals:gammaMaxWidth: 22
+  reco:ReconstructedFarForwardNeutrals:gammaScaleCorrCoeffHcalZDC: "1.7582,0.9198"
+  reco:ReconstructedFarForwardNeutrals:neutronScaleCorrCoeffHcalZDC: "2.0790,0.9109"
+  reco:ReconstructedFarForwardNeutrals:lambdaPairingHcalZDC: 0
+nthreads: 1
+datasets: [D6s_9x275, D6s_9x130]
+output_collections: ["EventHeader", "HcalFarForwardZDCRawHits", "B0ECalRawHits", "EcalFarForwardZDCRawHits", "HcalFarForwardZDCRecHits", "EcalFarForwardZDCRecHits", "HcalFarForwardZDCClusters", "B0ECalClusters", "EcalFarForwardZDCClusters", "HcalFarForwardZDCClusterAssociations", "B0ECalClusterAssociations", "EcalFarForwardZDCClusterAssociations", "EcalEndcapPClusterAssociations", "Reconstructed.*Neutrals.*", "ReconstructedLambda.*"]
+notes: "leave-one-out on AB10: AB16_cheap_b0_stock"
